@@ -2,8 +2,8 @@
 declare(strict_types=1);
 ?>
 <section class="module-toolbar"><div><p class="module-intro">Ürün kataloğunuzu ve stok seviyelerinizi yönetin.</p><span class="result-count"><?= number_format($total,0,',','.') ?> ürün kaydı</span></div><?php if(kd_can('products.manage')): ?><a class="btn primary action-link" href="index.php?page=products&action=create">＋ Yeni ürün</a><?php endif; ?></section>
-<section class="grid grid-3 dashboard-metrics">
-<div class="panel metric-card"><span>Stok değeri</span><strong><?= number_format((float)($summary['stock_value']??0),2,',','.') ?> ₺</strong><small>Mevcut miktar × ağırlıklı alış maliyeti</small></div>
+<section class="stats">
+<div class="stat-card"><span>Stok değeri</span><strong><?= number_format((float)($summary['stock_value']??0),2,',','.') ?> ₺</strong><small>Mevcut miktar × ağırlıklı alış maliyeti</small></div>
 <div class="panel metric-card"><span>Kritik stok</span><strong><?= number_format((int)($summary['low_stock_count']??0),0,',','.') ?></strong><small>Minimum stok seviyesinde veya altında</small></div>
 <div class="panel metric-card"><span>Stoksuz ürün</span><strong><?= number_format((int)($summary['out_of_stock_count']??0),0,',','.') ?></strong><small>Stok takibi açık, miktarı sıfır veya altında</small></div>
 </section>
