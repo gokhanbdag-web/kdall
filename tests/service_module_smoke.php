@@ -10,4 +10,8 @@ $serviceView=file_get_contents(dirname(__DIR__).'/app/Views/service/index.php');
 foreach(['ADD COLUMN warehouse_id','fk_service_job_warehouse'] as $needle){if($warehouseMigration===false||strpos($warehouseMigration,$needle)===false){fwrite(STDERR,"Service warehouse migration missing {$needle}.\\n");exit(1);}}
 foreach(['warehouse_id','product_warehouse_stocks','warehouse_id,user_id'] as $needle){if($serviceController===false||strpos($serviceController,$needle)===false){fwrite(STDERR,"Service warehouse stock handling missing {$needle}.\\n");exit(1);}}
 if($serviceView===false||strpos($serviceView,'name="warehouse_id"')===false||strpos($serviceView,'warehouse_name')===false){fwrite(STDERR,"Service warehouse UI missing.\\n");exit(1);}
+$accounting=file_get_contents(dirname(__DIR__).'/app/Core/AccountingPostingService.php');
+$serviceCostMigration=file_get_contents(dirname(__DIR__).'/database/migrations/045_service_part_costing.sql');
+foreach(['unit_cost','AccountingPostingService::postServiceParts','SUM(quantity*unit_cost)'] as $needle){if($serviceController===false||strpos($serviceController,$needle)===false){fwrite(STDERR,"Service part cost/accounting flow missing {$needle}.\n");exit(1);}}
+if($accounting===false||strpos($accounting,'postServiceParts')===false||strpos($accounting,"'service_parts'")===false||$serviceCostMigration===false||strpos($serviceCostMigration,'unit_cost')===false){fwrite(STDERR,"Service part accounting migration or journal missing.\n");exit(1);}
 echo "KodVadAll technical service smoke tests passed.\n";
