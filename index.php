@@ -61,6 +61,11 @@ if ($page === 'users') {
     exit;
 }
 
+if ($page === 'settings') {
+    KodVadAll\Modules\Settings\SettingsController::handle($pdo);
+    exit;
+}
+
 if ($page !== 'dashboard') {
     http_response_code(404);
     $pageTitle = 'Sayfa bulunamadı';

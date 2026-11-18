@@ -354,3 +354,14 @@ input[type=date],input[type=datetime-local],input[type=time],input[type=month]{-
 .user-status-form .btn{padding:0 16px;white-space:nowrap}
 @media(max-width:680px){.user-detail-panel{padding:18px}.user-meta-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.user-status-form{align-items:stretch;flex-direction:column}.user-status-form .btn{width:100%}}
 @media(max-width:460px){.user-detail-heading{align-items:flex-start;flex-wrap:wrap}.user-detail-heading>.customer-status{margin-left:66px}}
+
+
+/* Business and system settings */
+.settings-form{display:grid;gap:15px}
+.settings-panel{padding:23px}
+.settings-panel .form-section-title{margin-bottom:20px}
+.settings-panel .form-section-title p{margin-top:5px}
+.settings-panel .form-actions{margin-top:22px}
+.settings-success{display:flex;align-items:center;gap:10px;padding:12px 15px;margin:0 0 15px;border:1px solid #ccebdd;border-radius:10px;background:#effaf4;color:#16724f;font-size:12px;font-weight:700}
+.settings-success span{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#d8f2e4;color:#16845f}
+@media(max-width:560px){.settings-panel{padding:17px}}

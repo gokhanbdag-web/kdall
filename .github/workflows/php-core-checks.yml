@@ -40,5 +40,7 @@ jobs:
         run: php tests/tasks_module_smoke.php
       - name: Run user management smoke tests
         run: php tests/users_module_smoke.php
+      - name: Run settings module smoke tests
+        run: php tests/settings_module_smoke.php
       - name: Check JavaScript syntax
         run: node --check assets/admin.js && node --check assets/orders.js
