@@ -365,3 +365,4 @@ input[type=date],input[type=datetime-local],input[type=time],input[type=month]{-
 .settings-success{display:flex;align-items:center;gap:10px;padding:12px 15px;margin:0 0 15px;border:1px solid #ccebdd;border-radius:10px;background:#effaf4;color:#16724f;font-size:12px;font-weight:700}
 .settings-success span{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#d8f2e4;color:#16845f}
 @media(max-width:560px){.settings-panel{padding:17px}}
+\n/* Purchasing module */\n.purchase-form .data-table input,.purchase-form .data-table select{min-width:100px}\n

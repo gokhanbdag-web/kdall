@@ -1,0 +1,60 @@
+<?php
+declare(strict_types=1);
+namespace KodVadAll\Modules\Purchasing;
+use PDO;
+use RuntimeException;
+use Throwable;
+
+final class PurchasingController
+{
+ public static function handle(PDO $db,array $admin,string $page):void
+ {
+  $supplier=$page==='suppliers';$perm=$supplier?'suppliers':'purchases';kd_require_permission($perm.'.view');
+  $action=(string)($_GET['action']??'list');$id=max(0,(int)($_GET['id']??0));$errors=[];
+  if($_SERVER['REQUEST_METHOD']==='POST'){
+   kd_csrf_check();kd_require_permission($perm.'.manage');
+   try{
+    $form=(string)($_POST['form_action']??'');
+    if($supplier&&$form==='save'){
+     $name=trim((string)($_POST['name']??''));$email=trim((string)($_POST['email']??''));
+     if($name===''||mb_strlen($name)>190)throw new RuntimeException('Tedarikçi adı zorunludur.');
+     if($email!==''&&!filter_var($email,FILTER_VALIDATE_EMAIL))throw new RuntimeException('E-posta adresi geçersiz.');
+     $data=[in_array($_POST['type']??'',['company','individual'],true)?$_POST['type']:'company',$name,trim((string)($_POST['contact_name']??'')),$email,trim((string)($_POST['phone']??'')),trim((string)($_POST['tax_office']??'')),trim((string)($_POST['tax_number']??'')),trim((string)($_POST['address']??'')),trim((string)($_POST['notes']??'')),in_array($_POST['status']??'',['active','inactive'],true)?$_POST['status']:'active'];
+     $sid=max(0,(int)($_POST['supplier_id']??0));
+     if($sid){$q=$db->prepare('UPDATE suppliers SET type=?,name=?,contact_name=?,email=?,phone=?,tax_office=?,tax_number=?,address=?,notes=?,status=?,updated_at=NOW() WHERE id=?');$q->execute([...$data,$sid]);}
+     else{$db->beginTransaction();$q=$db->prepare('INSERT INTO suppliers (supplier_code,type,name,contact_name,email,phone,tax_office,tax_number,address,notes,status,created_at) VALUES (NULL,?,?,?,?,?,?,?,?,?,?,NOW())');$q->execute($data);$sid=(int)$db->lastInsertId();$db->prepare('UPDATE suppliers SET supplier_code=? WHERE id=?')->execute(['TED-'.date('Y').'-'.str_pad((string)$sid,5,'0',STR_PAD_LEFT),$sid]);$db->commit();}
+     kd_audit($sid?'supplier.saved':'supplier.created','supplier',$sid);self::go('suppliers','view',$sid);
+    }
+    if($supplier&&$form==='archive'){$sid=(int)($_POST['supplier_id']??0);$db->prepare("UPDATE suppliers SET status='inactive',updated_at=NOW() WHERE id=?")->execute([$sid]);self::go('suppliers');}
+    if(!$supplier&&$form==='create'){
+     $sid=(int)($_POST['supplier_id']??0);$q=$db->prepare("SELECT id FROM suppliers WHERE id=? AND status='active'");$q->execute([$sid]);if(!$q->fetchColumn())throw new RuntimeException('Aktif tedarikçi seçin.');
+     $ids=is_array($_POST['product_id']??null)?$_POST['product_id']:[];$qtys=is_array($_POST['quantity']??null)?$_POST['quantity']:[];$costs=is_array($_POST['unit_cost']??null)?$_POST['unit_cost']:[];$taxes=is_array($_POST['tax_rate']??null)?$_POST['tax_rate']:[];$items=[];
+     foreach($ids as $i=>$raw){$pid=(int)$raw;$qty=(float)($qtys[$i]??0);if($pid<1&&$qty<=0)continue;if($pid<1||$qty<=0)throw new RuntimeException('Ürün ve miktar bilgilerini kontrol edin.');$q=$db->prepare("SELECT id,name,sku,purchase_price,status FROM products WHERE id=?");$q->execute([$pid]);$p=$q->fetch();if(!$p||$p['status']!=='active')throw new RuntimeException('Ürün bulunamadı veya pasif.');$cost=(float)($costs[$i]??$p['purchase_price']);$tax=(float)($taxes[$i]??0);if($cost<0||$tax<0||$tax>100)throw new RuntimeException('Maliyet veya KDV geçersiz.');$sub=round($qty*$cost,2);$vat=round($sub*$tax/100,2);$items[]=[$pid,$p['name'],$p['sku'],$qty,$cost,$tax,$sub,$vat,$sub+$vat];}
+     if(!$items)throw new RuntimeException('En az bir ürün ekleyin.');$sub=array_sum(array_column($items,6));$vat=array_sum(array_column($items,7));$expected=trim((string)($_POST['expected_at']??''));if($expected!==''&&!preg_match('/^\d{4}-\d{2}-\d{2}$/',$expected))throw new RuntimeException('Teslim tarihi geçersiz.');
+     $db->beginTransaction();$tmp='TMP-'.bin2hex(random_bytes(8));$q=$db->prepare("INSERT INTO purchase_orders (purchase_number,supplier_id,status,subtotal,tax_total,grand_total,expected_at,notes,created_by,created_at) VALUES (?,?,'draft',?,?,?,?,?,?,NOW())");$q->execute([$tmp,$sid,$sub,$vat,$sub+$vat,$expected?:null,trim((string)($_POST['notes']??''))?:null,(int)$admin['id']]);$pid=(int)$db->lastInsertId();$no='SAT-'.date('Y').'-'.str_pad((string)$pid,6,'0',STR_PAD_LEFT);$db->prepare('UPDATE purchase_orders SET purchase_number=? WHERE id=?')->execute([$no,$pid]);$ins=$db->prepare('INSERT INTO purchase_order_items (purchase_order_id,product_id,product_name,sku,quantity,unit_cost,tax_rate,line_subtotal,line_tax,line_total,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,NOW())');foreach($items as $it)$ins->execute([$pid,...$it]);$db->commit();kd_audit('purchase.created','purchase',$pid);self::go('purchases','view',$pid);
+    }
+    if(!$supplier&&$form==='status'){$pid=(int)($_POST['purchase_id']??0);$to=(string)($_POST['status']??'');$db->beginTransaction();$q=$db->prepare('SELECT * FROM purchase_orders WHERE id=? FOR UPDATE');$q->execute([$pid]);$p=$q->fetch();if(!$p)throw new RuntimeException('Satın alma bulunamadı.');$allowed=['draft'=>['ordered','cancelled'],'ordered'=>['cancelled'],'partial'=>['cancelled'],'received'=>[],'cancelled'=>[]];if(!in_array($to,$allowed[$p['status']]??[],true))throw new RuntimeException('Geçersiz durum geçişi.');$db->prepare('UPDATE purchase_orders SET status=?,updated_at=NOW() WHERE id=?')->execute([$to,$pid]);$db->commit();kd_audit('purchase.status_changed','purchase',$pid);self::go('purchases','view',$pid);}
+    if(!$supplier&&$form==='receive'){
+     $pid=(int)($_POST['purchase_id']??0);$receive=is_array($_POST['receive_qty']??null)?$_POST['receive_qty']:[];$db->beginTransaction();$q=$db->prepare('SELECT * FROM purchase_orders WHERE id=? FOR UPDATE');$q->execute([$pid]);$p=$q->fetch();if(!$p||!in_array($p['status'],['ordered','partial'],true))throw new RuntimeException('Bu sipariş mal kabul için uygun değil.');$q=$db->prepare('SELECT * FROM purchase_order_items WHERE purchase_order_id=? ORDER BY id FOR UPDATE');$q->execute([$pid]);$items=$q->fetchAll();$list=[];$all=true;$total=0;
+     foreach($items as $it){$qty=(float)($receive[$it['id']]??0);$left=(float)$it['quantity']-(float)$it['received_quantity'];if($qty<0||$qty>$left+0.000001)throw new RuntimeException('Teslim alınan miktar kalan miktarı aşamaz.');if($qty>0)$list[]=[$it,$qty];if($left-$qty>0.000001)$all=false;}
+     if(!$list)throw new RuntimeException('Teslim alınacak miktar girin.');$tmp='TMP-'.bin2hex(random_bytes(8));$q=$db->prepare('INSERT INTO purchase_receipts (purchase_order_id,receipt_number,notes,received_by,received_at) VALUES (?,?,?,?,NOW())');$q->execute([$pid,$tmp,trim((string)($_POST['notes']??''))?:null,(int)$admin['id']]);$rid=(int)$db->lastInsertId();$db->prepare('UPDATE purchase_receipts SET receipt_number=? WHERE id=?')->execute(['MAL-'.date('Y').'-'.str_pad((string)$rid,6,'0',STR_PAD_LEFT),$rid]);
+     foreach($list as [$it,$qty]){$productId=(int)($it['product_id']??0);$db->prepare('UPDATE purchase_order_items SET received_quantity=received_quantity+? WHERE id=?')->execute([$qty,$it['id']]);$db->prepare('INSERT INTO purchase_receipt_items (receipt_id,purchase_order_item_id,product_id,quantity,created_at) VALUES (?,?,?,?,NOW())')->execute([$rid,$it['id'],$productId?:null,$qty]);if($productId){$q=$db->prepare('SELECT stock_quantity,track_stock FROM products WHERE id=? FOR UPDATE');$q->execute([$productId]);$prod=$q->fetch();if($prod&&(int)$prod['track_stock']){$before=(float)$prod['stock_quantity'];$after=$before+$qty;$db->prepare('UPDATE products SET stock_quantity=?,purchase_price=?,updated_at=NOW() WHERE id=?')->execute([$after,$it['unit_cost'],$productId]);$db->prepare("INSERT INTO product_stock_movements (product_id,user_id,movement_type,quantity,before_quantity,after_quantity,note,reference_type,reference_id,created_at) VALUES (?,?,'in',?,?,?,?,?,?,NOW())")->execute([$productId,(int)$admin['id'],$qty,$before,$after,'Satın alma '.$p['purchase_number'],'purchase',$pid]);}}$total+=$qty;}
+     $db->prepare('UPDATE purchase_orders SET status=?,updated_at=NOW() WHERE id=?')->execute([$all?'received':'partial',$pid]);$db->commit();kd_audit('purchase.received','purchase',$pid);self::go('purchases','view',$pid);
+    }
+   }catch(Throwable $e){if($db->inTransaction())$db->rollBack();error_log('KodVadAll purchasing: '.$e->getMessage());$errors[]=$e instanceof RuntimeException?$e->getMessage():'İşlem tamamlanamadı.';$action=(string)($_GET['action']??'list');$id=max(0,(int)($_GET['id']??0));}
+  }
+  $view=KD_ROOT.'/app/Views/purchasing/index.php';
+  if($supplier){
+   if(in_array($action,['create','edit'],true)){$record=['id'=>0,'type'=>'company','name'=>'','contact_name'=>'','email'=>'','phone'=>'','tax_office'=>'','tax_number'=>'','address'=>'','notes'=>'','status'=>'active','supplier_code'=>''];if($action==='edit'){$q=$db->prepare('SELECT * FROM suppliers WHERE id=?');$q->execute([$id]);$record=$q->fetch()?:null;if(!$record)self::notFound();}}
+   elseif($action==='view'){$q=$db->prepare('SELECT * FROM suppliers WHERE id=?');$q->execute([$id]);$record=$q->fetch()?:null;if(!$record)self::notFound();$q=$db->prepare('SELECT id,purchase_number,status,grand_total,created_at FROM purchase_orders WHERE supplier_id=? ORDER BY id DESC LIMIT 30');$q->execute([$id]);$related=$q->fetchAll();}
+   else{$q=trim((string)($_GET['q']??''));$status=in_array($_GET['status']??'', ['active','inactive'],true)?$_GET['status']:'';$where=[];$params=[];if($q!==''){$where[]='(name LIKE ? OR supplier_code LIKE ? OR email LIKE ? OR phone LIKE ?)';$like='%'.$q.'%';array_push($params,$like,$like,$like,$like);}if($status!==''){$where[]='status=?';$params[]=$status;}$sql=$where?' WHERE '.implode(' AND ',$where):'';$st=$db->prepare('SELECT * FROM suppliers'.$sql.' ORDER BY id DESC LIMIT 100');$st->execute($params);$rows=$st->fetchAll();$st=$db->prepare('SELECT COUNT(*) FROM suppliers'.$sql);$st->execute($params);$total=(int)$st->fetchColumn();}
+  }else{
+   if($action==='create'){$suppliers=$db->query("SELECT id,name FROM suppliers WHERE status='active' ORDER BY name")->fetchAll();$products=$db->query("SELECT id,name,sku,purchase_price,unit FROM products WHERE status='active' ORDER BY name")->fetchAll();}
+   elseif($action==='view'){$st=$db->prepare('SELECT p.*,s.name supplier_name FROM purchase_orders p JOIN suppliers s ON s.id=p.supplier_id WHERE p.id=?');$st->execute([$id]);$record=$st->fetch()?:null;if(!$record)self::notFound();$st=$db->prepare('SELECT * FROM purchase_order_items WHERE purchase_order_id=? ORDER BY id');$st->execute([$id]);$items=$st->fetchAll();$st=$db->prepare('SELECT * FROM purchase_receipts WHERE purchase_order_id=? ORDER BY id DESC');$st->execute([$id]);$receipts=$st->fetchAll();}
+   else{$q=trim((string)($_GET['q']??''));$status=in_array($_GET['status']??'', ['draft','ordered','partial','received','cancelled'],true)?$_GET['status']:'';$where=[];$params=[];if($q!==''){$where[]='(p.purchase_number LIKE ? OR s.name LIKE ?)';$like='%'.$q.'%';$params=[$like,$like];}if($status!==''){$where[]='p.status=?';$params[]=$status;}$sql=$where?' WHERE '.implode(' AND ',$where):'';$st=$db->prepare('SELECT p.*,s.name supplier_name FROM purchase_orders p JOIN suppliers s ON s.id=p.supplier_id'.$sql.' ORDER BY p.id DESC LIMIT 100');$st->execute($params);$rows=$st->fetchAll();$st=$db->prepare('SELECT COUNT(*) FROM purchase_orders p JOIN suppliers s ON s.id=p.supplier_id'.$sql);$st->execute($params);$total=(int)$st->fetchColumn();}
+  }
+  $pageTitle=$supplier?'Tedarikçiler':'Satın Alma & Tedarik';ob_start();require $view;$content=ob_get_clean();require KD_ROOT.'/app/Views/layouts/admin.php';
+ }
+ private static function go(string $page,string $action='list',int $id=0):never{$u='index.php?page='.$page;if($action!=='list')$u.='&action='.$action;if($id)$u.='&id='.$id;header('Location: '.$u,true,303);exit;}
+ private static function notFound():never{http_response_code(404);exit('Kayıt bulunamadı.');}
+}

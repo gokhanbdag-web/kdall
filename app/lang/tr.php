@@ -9,7 +9,7 @@ return [
     'nav.modules' => 'İŞLETME YÖNETİMİ',
     'nav.crm' => 'CRM & Müşteriler',
     'nav.catalog' => 'Ürün & Stok',
-    'nav.sales' => 'Satış & Siparişler',
+    'nav.sales' => 'Satış & Siparişler',\n    'nav.suppliers' => 'Tedarikçiler',\n    'nav.purchases' => 'Satın Alma',
     'nav.tasks' => 'Görevler',
     'nav.system' => 'SİSTEM',
     'nav.users' => 'Kullanıcılar & Yetkiler',
