@@ -76,7 +76,9 @@ final class AccountingPostingService
   if($total<=0)return;
   $inventory=self::account($db,'153');$lines=[[$inventory,$total,0,'Üretim mamul stok maliyeti']];
   if($material>0)$lines[]=[$inventory,0,$material,'Üretimde tüketilen hammadde'];
-  if($conversion>0)$lines[]=[self::account($db,'730'),0,$conversion,'Üretim işçilik ve genel giderleri'];
+  $labor=round((float)$order['labor_cost'],2);$overhead=round((float)$order['overhead_cost'],2);
+  if($labor>0)$lines[]=[self::account($db,'335'),0,$labor,'Üretim işçilik tahakkuku'];
+  if($overhead>0)$lines[]=[self::account($db,'320'),0,$overhead,'Üretim genel gider tahakkuku'];
   self::journal($db,'production_order',$orderId,(string)$order['completed_at'],'Üretim maliyeti '.$order['order_number'],$userId,'TRY',$lines);
  }
  public static function reverseInvoice(PDO $db,int $invoiceId,int $userId=0):void
