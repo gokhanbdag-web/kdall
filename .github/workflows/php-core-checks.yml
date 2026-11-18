@@ -72,5 +72,9 @@ jobs:
         run: php tests/payments_module_smoke.php
       - name: Lint payment callback endpoint
         run: php -l payment_callback.php
+      - name: Run notifications module smoke tests
+        run: php tests/notifications_module_smoke.php
+      - name: Lint automation cron
+        run: php -l cron/automation.php
       - name: Check JavaScript syntax
         run: node --check assets/admin.js && node --check assets/orders.js

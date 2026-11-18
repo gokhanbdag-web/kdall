@@ -126,6 +126,11 @@ if ($page === 'payments') {
     exit;
 }
 
+if ($page === 'notifications') {
+    KodVadAll\Modules\Notifications\NotificationsController::handle($pdo, $admin);
+    exit;
+}
+
 if ($page === 'settings') {
     KodVadAll\Modules\Settings\SettingsController::handle($pdo);
     exit;

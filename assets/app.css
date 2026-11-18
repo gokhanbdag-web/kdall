@@ -426,3 +426,14 @@ input[type=date],input[type=datetime-local],input[type=time],input[type=month]{-
 
 /* Payment gateway administration */
 .payment-config-note{padding:12px;border-radius:9px;background:#f4f6fb;color:var(--muted);font-size:11px;line-height:1.6;margin:10px 0}
+
+/* Notifications */
+.notification-link{position:relative;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+.notification-link b{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:20px;background:#e5484d;color:#fff;font-size:9px;display:grid;place-items:center}
+.notification-list{padding:0 20px}
+.notification-item{display:flex;align-items:flex-start;gap:14px;padding:18px 0;border-bottom:1px solid var(--line)}
+.notification-item:last-child{border-bottom:0}
+.notification-item.unread{background:linear-gradient(90deg,#f7f8ff,transparent);margin:0 -20px;padding:18px 20px}
+.notification-dot{width:9px;height:9px;border-radius:50%;background:#8b96a8;margin-top:6px;flex:none}
+.notification-dot.warning{background:#d69b36}.notification-dot.success{background:#29966b}.notification-dot.error{background:#d84d4d}
+.notification-body{flex:1;min-width:0}.notification-body p{margin:5px 0;color:var(--muted);font-size:12px}.notification-body small{color:var(--muted);font-size:10px}.notification-body a{display:block;margin-top:6px;color:var(--primary);font-size:11px;text-decoration:none}

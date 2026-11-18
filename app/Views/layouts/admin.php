@@ -1,6 +1,12 @@
 <?php
 declare(strict_types=1);
 $pageTitle = $pageTitle ?? kd_t('dashboard.title');
+$notificationUnread = 0;
+try {
+    $nq = kd_db()->prepare('SELECT COUNT(*) FROM notifications WHERE user_id=? AND read_at IS NULL');
+    $nq->execute([(int)$admin['id']]);
+    $notificationUnread = (int)$nq->fetchColumn();
+} catch (Throwable $e) { $notificationUnread = 0; }
 ?>
 <!doctype html>
 <html lang="tr">
@@ -26,7 +32,7 @@ $pageTitle = $pageTitle ?? kd_t('dashboard.title');
             </div>
             <div class="topbar-actions">
                 <label class="quick-search"><span>⌕</span><input type="search" placeholder="<?= kd_e(kd_t('common.search')) ?>" aria-label="<?= kd_e(kd_t('common.search')) ?>"></label>
-                <button class="icon-button" type="button" aria-label="<?= kd_e(kd_t('common.notifications')) ?>">♧<i></i></button>
+                <a class="icon-button notification-link" href="index.php?page=notifications" aria-label="<?= kd_e(kd_t('common.notifications')) ?>">♧<?php if($notificationUnread): ?><b><?= $notificationUnread>99?'99+':$notificationUnread ?></b><?php endif; ?></a>
                 <div class="top-user"><span class="avatar small-avatar"><?= kd_e($userInitial) ?></span><span><?= kd_e($admin['name']) ?></span></div>
             </div>
         </header>

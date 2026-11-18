@@ -29,6 +29,7 @@ return [
             ['label' => 'nav.marketing', 'page' => 'marketing', 'permission' => 'marketing.view', 'icon' => 'ticket-percent'],
             ['label' => 'nav.site', 'page' => 'site', 'permission' => 'site.view', 'icon' => 'panels-top-left'],
             ['label' => 'nav.payments', 'page' => 'payments', 'permission' => 'payments.view', 'icon' => 'credit-card'],
+            ['label' => 'nav.notifications', 'page' => 'notifications', 'permission' => 'notifications.view', 'icon' => 'bell-ring'],
             ['label' => 'nav.tasks', 'page' => 'tasks', 'permission' => 'tasks.view', 'icon' => 'list-checks']
         ]
     ],

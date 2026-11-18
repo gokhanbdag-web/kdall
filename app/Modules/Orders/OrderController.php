@@ -98,6 +98,7 @@ final class OrderController
                     self::history($pdo,$orderId,(int)$admin['id'],null,'draft','Sipariş oluşturuldu');
                     $pdo->commit();
                     kd_audit('order.created','order',$orderId);
+                    \KodVadAll\Core\NotificationService::notifyRoles($pdo,['owner','admin','manager'],'Yeni satış siparişi',$orderNumber.' numaralı sipariş oluşturuldu.','index.php?page=orders&action=view&id='.$orderId,'success');
                     self::redirect('view',$orderId);
                 } elseif ($formAction==='status') {
                     $orderId=max(0,(int)($_POST['order_id']??0));
@@ -126,6 +127,7 @@ final class OrderController
                     }
                     $pdo->commit();
                     kd_audit('order.status_changed','order',$orderId);
+                    \KodVadAll\Core\NotificationService::notifyRoles($pdo,['owner','admin','manager'],'Sipariş durumu güncellendi',$order['order_number'].' siparişi: '.$target.'.','index.php?page=orders&action=view&id='.$orderId,'info');
                     self::redirect('view',$orderId);
                 }
             } catch(Throwable $e) {

@@ -25,6 +25,7 @@ return [
     'nav.marketing' => 'Pazarlama & Kampanyalar',
     'nav.site' => 'E-ticaret Sitesi & CMS',
     'nav.payments' => 'Ödeme Sistemleri',
+    'nav.notifications' => 'Bildirim Merkezi',
     'nav.tasks' => 'Görevler',
     'nav.system' => 'SİSTEM',
     'nav.users' => 'Kullanıcılar & Yetkiler',
