@@ -13,6 +13,7 @@ return [
         'items' => [
             ['label' => 'nav.crm', 'page' => 'customers', 'permission' => 'customers.view', 'icon' => 'users'],
             ['label' => 'nav.catalog', 'page' => 'products', 'permission' => 'products.view', 'icon' => 'package'],
+            ['label' => 'Depo Yönetimi', 'page' => 'warehouses', 'permission' => 'warehouses.view', 'icon' => 'warehouse'],
             ['label' => 'nav.sales', 'page' => 'orders', 'permission' => 'orders.view', 'icon' => 'shopping-bag'],
             ['label' => 'nav.suppliers', 'page' => 'suppliers', 'permission' => 'suppliers.view', 'icon' => 'truck'],
             ['label' => 'nav.purchases', 'page' => 'purchases', 'permission' => 'purchases.view', 'icon' => 'clipboard-list'],
