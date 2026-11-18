@@ -15,12 +15,12 @@ ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 
 spl_autoload_register(static function (string $class): void {
-    $prefix = 'KodVadAll\\Core\\';
+    $prefix = 'KodVadAll\Core\';
     if (!str_starts_with($class, $prefix)) {
         return;
     }
     $relative = substr($class, strlen($prefix));
-    $file = KD_ROOT . '/app/Core/' . str_replace('\\\\', '/', $relative) . '.php';
+    $file = KD_ROOT . '/app/Core/' . str_replace('\\', '/', $relative) . '.php';
     if (is_file($file)) {
         require $file;
     }
@@ -114,23 +114,23 @@ function kd_db(): PDO
         ]
     );
 
-    KodVadAll\\Core\\Migrator::run($pdo, KD_ROOT . '/database/migrations');
+    KodVadAll\Core\Migrator::run($pdo, KD_ROOT . '/database/migrations');
     return $pdo;
 }
 
 function kd_can(string $permission): bool
 {
     $userId = (int)($_SESSION['user']['id'] ?? 0);
-    return $userId > 0 && KodVadAll\\Core\\Authorization::allows(kd_db(), $userId, $permission);
+    return $userId > 0 && KodVadAll\Core\Authorization::allows(kd_db(), $userId, $permission);
 }
 
 function kd_require_permission(string $permission): void
 {
     $userId = (int)($_SESSION['user']['id'] ?? 0);
-    KodVadAll\\Core\\Authorization::require(kd_db(), $userId, $permission);
+    KodVadAll\Core\Authorization::require(kd_db(), $userId, $permission);
 }
 
 function kd_audit(string $action, ?string $entityType = null, ?int $entityId = null): void
 {
-    KodVadAll\\Core\\Audit::record(kd_db(), $action, $entityType, $entityId);
+    KodVadAll\Core\Audit::record(kd_db(), $action, $entityType, $entityId);
 }
