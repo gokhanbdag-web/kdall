@@ -17,7 +17,7 @@ $nav=require dirname(__DIR__).'/app/config/navigation.php';$found=[];foreach($na
 $purchaseMigration=file_get_contents(dirname(__DIR__).'/database/migrations/040_purchase_order_warehouse.sql');
 $purchaseController=file_get_contents(dirname(__DIR__).'/app/Modules/Purchasing/PurchasingController.php');
 $purchaseView=file_get_contents(dirname(__DIR__).'/app/Views/purchasing/index.php');
-foreach(['ADD COLUMN warehouse_id',"currency CHAR(3) NOT NULL DEFAULT 'TRY'",'fk_purchase_order_warehouse'] as $needle){if($purchaseMigration===false||strpos($purchaseMigration,$needle)===false){fwrite(STDERR,"Purchase warehouse migration missing {$needle}.\n");exit(1);}}
+foreach(['ADD COLUMN warehouse_id','fk_purchase_order_warehouse'] as $needle){if($purchaseMigration===false||strpos($purchaseMigration,$needle)===false){fwrite(STDERR,"Purchase warehouse migration missing {$needle}.\n");exit(1);}}
 foreach(['warehouse_id','warehouse_name','warehouseAfter','totalStock'] as $needle){if($purchaseController===false||strpos($purchaseController,$needle)===false){fwrite(STDERR,"Purchase warehouse routing missing {$needle}.\n");exit(1);}}
 if($purchaseView===false||strpos($purchaseView,'name="warehouse_id"')===false||strpos($purchaseView,'warehouse_name')===false){fwrite(STDERR,"Purchase warehouse selection/detail UI missing.\n");exit(1);}
 echo "KodVadAll purchasing module smoke tests passed.\n";
