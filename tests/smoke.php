@@ -4,9 +4,9 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/app/bootstrap.php';
 
 $classes = [
-    KodVadAll\\Core\\Migrator::class,
-    KodVadAll\\Core\\Authorization::class,
-    KodVadAll\\Core\\Audit::class,
+    KodVadAll\Core\Migrator::class,
+    KodVadAll\Core\Authorization::class,
+    KodVadAll\Core\Audit::class,
 ];
 
 foreach ($classes as $class) {
