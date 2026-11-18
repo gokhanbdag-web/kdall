@@ -204,6 +204,11 @@ if ($page === 'support') {
     exit;
 }
 
+if ($page === 'assets') {
+    \KodVadAll\Modules\Assets\AssetsController::handle($pdo, $admin);
+    exit;
+}
+
 if ($page === 'settings') {
     KodVadAll\Modules\Settings\SettingsController::handle($pdo);
     exit;

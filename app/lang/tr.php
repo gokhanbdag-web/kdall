@@ -35,6 +35,7 @@ return [
     'nav.audit' => 'Denetim Kayıtları',
     'nav.pos' => 'Hızlı Satış / POS',
     'nav.support' => 'Destek Talepleri',
+    'nav.assets' => 'Demirbaş Yönetimi',
     'nav.tasks' => 'Görevler',
     'nav.system' => 'SİSTEM',
     'nav.users' => 'Kullanıcılar & Yetkiler',

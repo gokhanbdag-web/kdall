@@ -39,6 +39,7 @@ return [
             ['label' => 'nav.audit', 'page' => 'audit', 'permission' => 'audit.view', 'icon' => 'clipboard-list'],
             ['label' => 'nav.pos', 'page' => 'pos', 'permission' => 'pos.view', 'icon' => 'scan-barcode'],
             ['label' => 'nav.support', 'page' => 'support', 'permission' => 'support.view', 'icon' => 'life-buoy'],
+            ['label' => 'nav.assets', 'page' => 'assets', 'permission' => 'assets.view', 'icon' => 'monitor-cog'],
             ['label' => 'nav.tasks', 'page' => 'tasks', 'permission' => 'tasks.view', 'icon' => 'list-checks']
         ]
     ],

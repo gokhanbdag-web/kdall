@@ -508,3 +508,11 @@ input[type=date],input[type=datetime-local],input[type=time],input[type=month]{-
 .support-message p{font-size:12px;line-height:1.6;margin:8px 0}.support-message small{color:var(--muted);font-size:10px}
 .support-reply{display:grid;gap:10px}
 @media(max-width:560px){.support-update{align-items:stretch;flex-direction:column}}
+
+/* Fixed asset register */
+.asset-value{display:grid;gap:5px;padding:17px;border-radius:12px;background:#f3f6fb;margin:16px 0}
+.asset-value strong{font-size:24px}.asset-value span,.asset-value small{font-size:11px;color:var(--muted)}
+.asset-details{display:flex;gap:10px 20px;flex-wrap:wrap;padding:10px 0;color:var(--muted);font-size:11px}
+.asset-edit-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0}
+.asset-edit-form .field-wide{grid-column:1/-1}
+@media(max-width:600px){.asset-edit-form{grid-template-columns:1fr}.asset-edit-form .field-wide{grid-column:auto}}
