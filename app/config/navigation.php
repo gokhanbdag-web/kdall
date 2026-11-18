@@ -12,7 +12,7 @@ return [
         'section' => 'nav.modules',
         'items' => [
             ['label' => 'nav.crm', 'page' => 'customers', 'permission' => 'customers.view', 'icon' => 'users'],
-            ['label' => 'nav.catalog', 'page' => 'products', 'permission' => 'products.view', 'icon' => 'package', 'coming' => true],
+            ['label' => 'nav.catalog', 'page' => 'products', 'permission' => 'products.view', 'icon' => 'package'],
             ['label' => 'nav.sales', 'page' => 'orders', 'permission' => 'orders.view', 'icon' => 'shopping-bag', 'coming' => true],
             ['label' => 'nav.tasks', 'page' => 'tasks', 'permission' => 'tasks.view', 'icon' => 'list-checks', 'coming' => true]
         ]
