@@ -175,7 +175,7 @@ final class OrderController
         $items->execute([$orderId]);
         foreach($items->fetchAll() as $item) {
             if(!$item['product_id']) continue;
-            $lock=$pdo->prepare('SELECT stock_quantity FROM products WHERE id=? FOR UPDATE');
+            $lock=$pdo->prepare('SELECT stock_quantity,track_stock FROM products WHERE id=? FOR UPDATE');
             $lock->execute([(int)$item['product_id']]);$product=$lock->fetch();
             if(!$product) continue;
             $before=(float)$product['stock_quantity'];$qty=(float)$item['quantity'];$after=$before+$qty;
