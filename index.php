@@ -41,6 +41,11 @@ if ($page === 'customers') {
     exit;
 }
 
+if ($page === 'products') {
+    KodVadAll\Modules\Products\ProductController::handle($pdo, $admin);
+    exit;
+}
+
 if ($page !== 'dashboard') {
     http_response_code(404);
     $pageTitle = 'Sayfa bulunamadı';
