@@ -25,6 +25,7 @@ final class OrderController
                 $formAction=(string)($_POST['form_action']??'');
                 if ($formAction==='create') {
                     $customerId=max(0,(int)($_POST['customer_id']??0));
+                    $warehouseId=max(0,(int)($_POST['warehouse_id']??0));
                     $productIds=is_array($_POST['product_id']??null)?$_POST['product_id']:[];
                     $quantities=is_array($_POST['quantity']??null)?$_POST['quantity']:[];
                     $prices=is_array($_POST['unit_price']??null)?$_POST['unit_price']:[];
@@ -62,6 +63,9 @@ final class OrderController
                     $discountTotal=0.0;
                     $campaign=null;
                     $pdo->beginTransaction();
+                    if($warehouseId<1)$warehouseId=(int)$pdo->query("SELECT id FROM warehouses WHERE is_default=1 AND status='active' LIMIT 1")->fetchColumn();
+                    $warehouseCheck=$pdo->prepare("SELECT id FROM warehouses WHERE id=? AND status='active' FOR UPDATE");$warehouseCheck->execute([$warehouseId]);
+                    if(!$warehouseCheck->fetchColumn())throw new RuntimeException('Aktif bir çıkış deposu seçin.');
                     if($couponCode!==''){
                         $couponQuery=$pdo->prepare("SELECT * FROM campaigns WHERE code=? AND status='active' AND starts_at<=NOW() AND (ends_at IS NULL OR ends_at>=NOW()) FOR UPDATE");
                         $couponQuery->execute([$couponCode]);
@@ -81,8 +85,8 @@ final class OrderController
                         $grand-=$discountTotal;
                     }
                     $temporaryNumber='TMP-'.bin2hex(random_bytes(10));
-                    $stmt=$pdo->prepare("INSERT INTO orders (order_number,customer_id,status,subtotal,tax_total,discount_total,grand_total,coupon_code,currency,created_at) VALUES (?,?,'draft',?,?,?,?,?,'TRY',NOW())");
-                    $stmt->execute([$temporaryNumber,$customerId?:null,$subtotal,$taxTotal,$discountTotal,$grand,$couponCode?:null]);
+                    $stmt=$pdo->prepare("INSERT INTO orders (order_number,customer_id,warehouse_id,status,subtotal,tax_total,discount_total,grand_total,coupon_code,currency,created_at) VALUES (?,?,?, 'draft',?,?,?,?,?,'TRY',NOW())");
+                    $stmt->execute([$temporaryNumber,$customerId?:null,$warehouseId,$subtotal,$taxTotal,$discountTotal,$grand,$couponCode?:null]);
                     $orderId=(int)$pdo->lastInsertId();
                     $number='SIP-'.date('Y').'-'.str_pad((string)$orderId,6,'0',STR_PAD_LEFT);
                     $pdo->prepare('UPDATE orders SET order_number=? WHERE id=?')->execute([$number,$orderId]);
@@ -113,8 +117,8 @@ final class OrderController
                     $from=(string)$order['status'];
                     self::validateTransition($from,$target);
                     if($target==='confirmed' && in_array((string)($order["payment_method"]??'manual'),['paytr','bank_transfer'],true) && (string)($order["payment_status"]??'pending')!=='paid') throw new RuntimeException('Çevrimiçi ödeme veya banka havalesi doğrulanmadan sipariş onaylanamaz.');
-                    if ($target==='confirmed' && $from==='draft') self::deductStock($pdo,$orderId,$number=(string)$order['order_number']);
-                    if ($target==='cancelled' && !empty($order['stock_deducted_at']) && empty($order['stock_reversed_at'])) self::restoreStock($pdo,$orderId,(string)$order['order_number']);
+                    if ($target==='confirmed' && $from==='draft') self::deductStock($pdo,$orderId,$number=(string)$order['order_number'],(int)($order['warehouse_id']??0));
+                    if ($target==='cancelled' && !empty($order['stock_deducted_at']) && empty($order['stock_reversed_at'])) self::restoreStock($pdo,$orderId,(string)$order['order_number'],(int)($order['warehouse_id']??0));
                     $pdo->prepare('UPDATE orders SET status=?,stock_deducted_at=IF(?=?,NOW(),stock_deducted_at),stock_reversed_at=IF(?=? AND stock_deducted_at IS NOT NULL,NOW(),stock_reversed_at),updated_at=NOW() WHERE id=?')->execute([$target,$target,'confirmed',$target,'cancelled',$orderId]);
                     self::history($pdo,$orderId,(int)$admin['id'],$from,$target,$note);
                     if($target==='completed' && !empty($order['customer_id'])){
@@ -145,12 +149,14 @@ final class OrderController
             kd_require_permission('orders.manage');
             $customers=$pdo->query("SELECT id,name FROM customers WHERE status='active' ORDER BY name")->fetchAll();
             $products=$pdo->query("SELECT id,name,sku,sale_price,stock_quantity,unit FROM products WHERE status='active' ORDER BY name")->fetchAll();
+            $warehouses=$pdo->query("SELECT id,name,code,is_default FROM warehouses WHERE status='active' ORDER BY is_default DESC,name")->fetchAll();
+            $defaultWarehouseId=(int)$pdo->query("SELECT id FROM warehouses WHERE is_default=1 AND status='active' LIMIT 1")->fetchColumn();
             $pageTitle='Yeni sipariş';
             ob_start();require KD_ROOT.'/app/Views/orders/form.php';$content=ob_get_clean();
             require KD_ROOT.'/app/Views/layouts/admin.php';return;
         }
         if($action==='view') {
-            $stmt=$pdo->prepare('SELECT o.*,c.name AS customer_name FROM orders o LEFT JOIN customers c ON c.id=o.customer_id WHERE o.id=? LIMIT 1');
+            $stmt=$pdo->prepare('SELECT o.*,c.name AS customer_name,w.name AS warehouse_name FROM orders o LEFT JOIN customers c ON c.id=o.customer_id LEFT JOIN warehouses w ON w.id=o.warehouse_id WHERE o.id=? LIMIT 1');
             $stmt->execute([$id]);$order=$stmt->fetch();
             if(!$order) self::notFound();
             $stmt=$pdo->prepare('SELECT * FROM order_items WHERE order_id=? ORDER BY id');
@@ -172,7 +178,7 @@ final class OrderController
         $whereSql=$where?' WHERE '.implode(' AND ',$where):'';
         $count=$pdo->prepare('SELECT COUNT(*) FROM orders o LEFT JOIN customers c ON c.id=o.customer_id'.$whereSql);$count->execute($params);
         $total=(int)$count->fetchColumn();$pages=max(1,(int)ceil($total/$limit));$page=min($page,$pages);$offset=($page-1)*$limit;
-        $stmt=$pdo->prepare('SELECT o.*,c.name AS customer_name FROM orders o LEFT JOIN customers c ON c.id=o.customer_id'.$whereSql.' ORDER BY o.id DESC LIMIT '.$limit.' OFFSET '.$offset);
+        $stmt=$pdo->prepare('SELECT o.*,c.name AS customer_name,w.name AS warehouse_name FROM orders o LEFT JOIN customers c ON c.id=o.customer_id LEFT JOIN warehouses w ON w.id=o.warehouse_id'.$whereSql.' ORDER BY o.id DESC LIMIT '.$limit.' OFFSET '.$offset);
         $stmt->execute($params);$orders=$stmt->fetchAll();
         $pageTitle='Satış & Siparişler';
         ob_start();require KD_ROOT.'/app/Views/orders/list.php';$content=ob_get_clean();
@@ -192,10 +198,19 @@ final class OrderController
         if(!in_array($to,$allowed[$from]??[],true)) throw new RuntimeException('Bu sipariş durum geçişine izin verilmiyor.');
     }
 
-    private static function deductStock(PDO $pdo,int $orderId,string $number): void
+    private static function resolveWarehouseId(PDO $pdo,int $warehouseId,bool $activeOnly): int
     {
-        $warehouseId=(int)$pdo->query("SELECT id FROM warehouses WHERE is_default=1 AND status='active' LIMIT 1")->fetchColumn();
-        if($warehouseId<1)throw new RuntimeException('Varsayılan depo bulunamadı.');
+        if($warehouseId<1)$warehouseId=(int)$pdo->query("SELECT id FROM warehouses WHERE is_default=1 AND status='active' LIMIT 1")->fetchColumn();
+        if($warehouseId<1)throw new RuntimeException('Sipariş deposu bulunamadı.');
+        $sql='SELECT id FROM warehouses WHERE id=?'.($activeOnly?" AND status='active'":'').' LIMIT 1';
+        $check=$pdo->prepare($sql);$check->execute([$warehouseId]);
+        if(!$check->fetchColumn())throw new RuntimeException($activeOnly?'Siparişin çıkış deposu aktif değil.':'Siparişin bağlı olduğu depo bulunamadı.');
+        return $warehouseId;
+    }
+
+    private static function deductStock(PDO $pdo,int $orderId,string $number,int $warehouseId): void
+    {
+        $warehouseId=self::resolveWarehouseId($pdo,$warehouseId,true);
         $items=$pdo->prepare('SELECT product_id,quantity,product_name FROM order_items WHERE order_id=?');$items->execute([$orderId]);
         foreach($items->fetchAll() as $item){
             if(!$item['product_id'])continue;$pid=(int)$item['product_id'];
@@ -212,10 +227,9 @@ final class OrderController
         }
     }
 
-    private static function restoreStock(PDO $pdo,int $orderId,string $number): void
+    private static function restoreStock(PDO $pdo,int $orderId,string $number,int $warehouseId): void
     {
-        $warehouseId=(int)$pdo->query("SELECT id FROM warehouses WHERE is_default=1 AND status='active' LIMIT 1")->fetchColumn();
-        if($warehouseId<1)throw new RuntimeException('Varsayılan depo bulunamadı.');
+        $warehouseId=self::resolveWarehouseId($pdo,$warehouseId,false);
         $items=$pdo->prepare('SELECT product_id,quantity,product_name FROM order_items WHERE order_id=?');$items->execute([$orderId]);
         foreach($items->fetchAll() as $item){
             if(!$item['product_id'])continue;$pid=(int)$item['product_id'];

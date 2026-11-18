@@ -37,6 +37,8 @@ try {
         }
     }
 
+    $pdo->prepare("INSERT INTO orders (order_number,status,subtotal,tax_total,grand_total,currency,created_at) VALUES (?,'draft',0,0,0,'TRY',NOW())")->execute(['MIGRATION-TEST-ORDER']);
+
     $directory = $root . '/database/migrations';
     $files = glob($directory . '/*.sql') ?: [];
     sort($files, SORT_STRING);
@@ -53,6 +55,12 @@ try {
     $after = (int)$pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn();
     if ($after !== $before) {
         throw new RuntimeException('A second migration run changed the applied migration count.');
+    }
+
+    $legacyOrder = $pdo->prepare('SELECT w.is_default FROM orders o LEFT JOIN warehouses w ON w.id=o.warehouse_id WHERE o.order_number=?');
+    $legacyOrder->execute(['MIGRATION-TEST-ORDER']);
+    if ((int)$legacyOrder->fetchColumn() !== 1) {
+        throw new RuntimeException('Existing sales orders were not backfilled to the default warehouse.');
     }
 
     foreach (['payment_transactions', 'accounting_journals', 'warehouse_stocktakes'] as $table) {
