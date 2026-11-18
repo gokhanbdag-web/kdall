@@ -37,7 +37,7 @@ if (!$admin) {
 $page = (string)($_GET['page'] ?? 'dashboard');
 
 if ($page === 'customers') {
-    KodVadAll\\Modules\\Customers\\CustomerController::handle($pdo, $admin);
+    KodVadAll\Modules\Customers\CustomerController::handle($pdo, $admin);
     exit;
 }
 
