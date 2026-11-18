@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace KodVadAll\\Core;
+namespace KodVadAll\Core;
 
 use PDO;
 use Throwable;
