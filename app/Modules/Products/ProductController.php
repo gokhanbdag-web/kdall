@@ -37,8 +37,11 @@ final class ProductController
                             $sku = 'URUN-' . date('Y') . '-' . str_pad((string)$productId,5,'0',STR_PAD_LEFT);
                             $pdo->prepare('UPDATE products SET sku=? WHERE id=?')->execute([$sku,$productId]);
                         }
+                        $defaultWarehouse=(int)$pdo->query("SELECT id FROM warehouses WHERE is_default=1 AND status='active' LIMIT 1")->fetchColumn();
+                        if($defaultWarehouse<1)throw new RuntimeException('Varsayılan depo bulunamadı.');
+                        $pdo->prepare('INSERT INTO product_warehouse_stocks(product_id,warehouse_id,quantity,updated_at) VALUES(?,?,?,NOW())')->execute([$productId,$defaultWarehouse,$data['stock_quantity']]);
                         if ($data['stock_quantity'] > 0) {
-                            self::recordMovement($pdo,$productId,(int)$admin['id'],'initial',$data['stock_quantity'],0,$data['stock_quantity'],'İlk stok kaydı');
+                            self::recordMovement($pdo,$productId,$defaultWarehouse,null,(int)$admin['id'],'initial',$data['stock_quantity'],0,$data['stock_quantity'],'İlk stok kaydı');
                         }
                         $pdo->commit();
                         kd_audit('product.created','product',$productId);
@@ -63,6 +66,7 @@ final class ProductController
                     $productId=max(0,(int)($_POST['product_id']??0));
                     $type=(string)($_POST['movement_type']??'');
                     $quantity=(float)($_POST['quantity']??0);
+                    $warehouseId=max(0,(int)($_POST['warehouse_id']??0));
                     $note=trim((string)($_POST['note']??''));
                     if (!in_array($type,['in','out','adjustment'],true) || $quantity < 0 || ($type!=='adjustment' && $quantity<=0)) {
                         $errors[]='Stok hareketi türünü ve miktarını kontrol edin.';
@@ -81,17 +85,21 @@ final class ProductController
                         if (!(int)$product['track_stock']) {
                             throw new RuntimeException('Bu üründe stok takibi kapalı.');
                         }
-                        $before=(float)$product['stock_quantity'];
+                        $warehouse=$pdo->prepare("SELECT id FROM warehouses WHERE id=? AND status='active' FOR UPDATE");
+                        $warehouse->execute([$warehouseId]);
+                        if(!$warehouse->fetchColumn())throw new RuntimeException('Aktif depo seçin.');
+                        $stock=$pdo->prepare('SELECT quantity FROM product_warehouse_stocks WHERE product_id=? AND warehouse_id=? FOR UPDATE');
+                        $stock->execute([$productId,$warehouseId]);$stockRow=$stock->fetch();
+                        if(!$stockRow){$pdo->prepare('INSERT INTO product_warehouse_stocks(product_id,warehouse_id,quantity,updated_at) VALUES(?,?,0,NOW())')->execute([$productId,$warehouseId]);$before=0.0;}
+                        else{$before=(float)$stockRow['quantity'];}
                         $after=$type==='in'?$before+$quantity:($type==='out'?$before-$quantity:$quantity);
-                        if ($after < 0) {
-                            throw new RuntimeException('Stok miktarı eksiye düşemez.');
-                        }
+                        if ($after < 0) throw new RuntimeException('Seçilen depodaki stok eksiye düşemez.');
                         $delta=abs($after-$before);
-                        if ($delta<=0) {
-                            throw new RuntimeException('Stok miktarında değişiklik yok.');
-                        }
-                        $pdo->prepare('UPDATE products SET stock_quantity=?,updated_at=NOW() WHERE id=?')->execute([$after,$productId]);
-                        self::recordMovement($pdo,$productId,(int)$admin['id'],$type,$delta,$before,$after,$note);
+                        if ($delta<=0) throw new RuntimeException('Stok miktarında değişiklik yok.');
+                        $pdo->prepare('UPDATE product_warehouse_stocks SET quantity=?,updated_at=NOW() WHERE product_id=? AND warehouse_id=?')->execute([$after,$productId,$warehouseId]);
+                        $total=(float)$pdo->query('SELECT COALESCE(SUM(quantity),0) FROM product_warehouse_stocks WHERE product_id='.(int)$productId)->fetchColumn();
+                        $pdo->prepare('UPDATE products SET stock_quantity=?,updated_at=NOW() WHERE id=?')->execute([$total,$productId]);
+                        self::recordMovement($pdo,$productId,$warehouseId,null,(int)$admin['id'],$type,$delta,$before,$after,$note);
                         $pdo->commit();
                         kd_audit('product.stock_changed','product',$productId);
                         self::redirect('view',$productId);
@@ -131,9 +139,12 @@ final class ProductController
         if ($action==='view') {
             $product=self::find($pdo,$id);
             if (!$product) self::notFound();
-            $stmt=$pdo->prepare('SELECT m.*,u.name AS user_name FROM product_stock_movements m LEFT JOIN users u ON u.id=m.user_id WHERE m.product_id=? ORDER BY m.id DESC LIMIT 100');
+            $stmt=$pdo->prepare('SELECT m.*,u.name AS user_name,w.name AS warehouse_name FROM product_stock_movements m LEFT JOIN users u ON u.id=m.user_id LEFT JOIN warehouses w ON w.id=m.warehouse_id WHERE m.product_id=? ORDER BY m.id DESC LIMIT 100');
             $stmt->execute([$id]);
             $movements=$stmt->fetchAll();
+            $warehouseStocks=$pdo->prepare("SELECT w.id,w.name,w.code,w.is_default,s.quantity FROM warehouses w LEFT JOIN product_warehouse_stocks s ON s.warehouse_id=w.id AND s.product_id=? WHERE w.status='active' ORDER BY w.is_default DESC,w.name");
+            $warehouseStocks->execute([$id]);$warehouseStocks=$warehouseStocks->fetchAll();
+            $warehouses=$pdo->query("SELECT id,name FROM warehouses WHERE status='active' ORDER BY is_default DESC,name")->fetchAll();
             $pageTitle=(string)$product['name'];
             ob_start(); require KD_ROOT.'/app/Views/products/detail.php'; $content=ob_get_clean();
             require KD_ROOT.'/app/Views/layouts/admin.php';
@@ -201,10 +212,10 @@ final class ProductController
         return $pdo->query("SELECT id,name FROM product_categories WHERE status='active' ORDER BY name")->fetchAll();
     }
 
-    private static function recordMovement(PDO $pdo,int $productId,int $userId,string $type,float $quantity,float $before,float $after,string $note): void
+    private static function recordMovement(PDO $pdo,int $productId,int $warehouseId,?int $transferId,int $userId,string $type,float $quantity,float $before,float $after,string $note): void
     {
-        $stmt=$pdo->prepare('INSERT INTO product_stock_movements (product_id,user_id,movement_type,quantity,before_quantity,after_quantity,note,created_at) VALUES (?,?,?,?,?,?,?,NOW())');
-        $stmt->execute([$productId,$userId,$type,$quantity,$before,$after,$note?:null]);
+        $stmt=$pdo->prepare('INSERT INTO product_stock_movements (product_id,warehouse_id,transfer_id,user_id,movement_type,quantity,before_quantity,after_quantity,note,created_at) VALUES (?,?,?,?,?,?,?,?,?,NOW())');
+        $stmt->execute([$productId,$warehouseId,$transferId,$userId,$type,$quantity,$before,$after,$note?:null]);
     }
 
     private static function redirect(string $action,int $id=0): never
