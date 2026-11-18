@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace KodVadAll\\Core;
+namespace KodVadAll\Core;
 use PDO;
 use RuntimeException;
 
@@ -17,7 +17,7 @@ final class AccountingPostingService
   $check=$db->prepare('SELECT id FROM accounting_journals WHERE source_type=? AND source_id=? LIMIT 1');$check->execute([$sourceType,$sourceId]);if($check->fetchColumn())return;
   $debit=0.0;$credit=0.0;foreach($lines as $line){$debit+=(float)$line[1];$credit+=(float)$line[2];}
   if(count($lines)<2||abs($debit-$credit)>0.009||$debit<=0)throw new RuntimeException('Otomatik muhasebe fişi dengeli oluşturulamadı.');
-  $number='OTO-'.strtoupper(substr($sourceType,0,8)).'-'.$sourceId;
+  $number='OTO-'.strtoupper(substr(hash('sha256',$sourceType),0,8)).'-'.$sourceId;
   $db->prepare("INSERT INTO accounting_journals(journal_no,journal_date,description,source_type,source_id,created_by,created_at) VALUES(?,?,?,?,?,?,NOW())")->execute([$number,$date,$description,$sourceType,$sourceId,$userId?:null]);
   $journalId=(int)$db->lastInsertId();$insert=$db->prepare('INSERT INTO accounting_journal_lines(journal_id,account_id,currency,debit,credit,line_description,created_at) VALUES(?,?,?,?,?,?,NOW())');
   foreach($lines as $line)$insert->execute([$journalId,(int)$line[0],$currency,(float)$line[1],(float)$line[2],$line[3]??null]);
@@ -73,8 +73,7 @@ final class AccountingPostingService
   $q=$db->prepare('SELECT account_id,currency,debit,credit,line_description FROM accounting_journal_lines WHERE journal_id=?');$q->execute([(int)$original['id']]);$lines=[];
   foreach($q->fetchAll() as $line)$lines[]=[(int)$line['account_id'],(float)$line['credit'],(float)$line['debit'],'İptal ters kaydı · '.($line['line_description']??'')];
   if(!$lines)return;
-  $currency=(string)$lines[0][1]; // replaced below from original journal lines
-  $currencyQuery=$db->prepare('SELECT currency FROM accounting_journal_lines WHERE journal_id=? LIMIT 1');$currencyQuery->execute([(int)$original['id']]);$currency=(string)$currencyQuery->fetchColumn();
+    $currencyQuery=$db->prepare('SELECT currency FROM accounting_journal_lines WHERE journal_id=? LIMIT 1');$currencyQuery->execute([(int)$original['id']]);$currency=(string)$currencyQuery->fetchColumn();
   self::journal($db,'invoice_reversal',$invoiceId,(string)$original['journal_date'],'Fatura iptal ters kaydı #'.$invoiceId,$userId,$currency,$lines);
  }
 }
