@@ -106,6 +106,11 @@ if ($page === 'communications') {
     exit;
 }
 
+if ($page === 'reports') {
+    KodVadAll\Modules\Reports\ReportsController::handle($pdo);
+    exit;
+}
+
 if ($page === 'settings') {
     KodVadAll\Modules\Settings\SettingsController::handle($pdo);
     exit;

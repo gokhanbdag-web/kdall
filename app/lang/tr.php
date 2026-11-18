@@ -21,6 +21,7 @@ return [
     'nav.contracts' => 'Sözleşmeler',
     'nav.hr' => 'Personel & İK',
     'nav.communications' => 'İletişim & Mesajlar',
+    'nav.reports' => 'Raporlar & Analiz',
     'nav.tasks' => 'Görevler',
     'nav.system' => 'SİSTEM',
     'nav.users' => 'Kullanıcılar & Yetkiler',
