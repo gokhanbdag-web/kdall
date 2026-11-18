@@ -42,10 +42,13 @@ final class AccountingController
   $accounts=$db->query('SELECT id,code,name,account_type,is_active FROM accounting_accounts ORDER BY code')->fetchAll();
   $journals=$db->query('SELECT j.*,COUNT(l.id) line_count,COALESCE(SUM(l.debit),0) total_debit,COALESCE(SUM(l.credit),0) total_credit FROM accounting_journals j LEFT JOIN accounting_journal_lines l ON l.journal_id=j.id GROUP BY j.id ORDER BY j.journal_date DESC,j.id DESC LIMIT 100')->fetchAll();
   $trial=[];$statement=[];$ledger=[];$opening=0.0;$ledgerTotals=['debit'=>0.0,'credit'=>0.0,'closing'=>0.0];
-  $summary=$db->prepare("SELECT a.account_type,COALESCE(SUM(CASE WHEN j.id IS NOT NULL THEN l.debit ELSE 0 END),0) debit,COALESCE(SUM(CASE WHEN j.id IS NOT NULL THEN l.credit ELSE 0 END),0) credit FROM accounting_accounts a LEFT JOIN accounting_journal_lines l ON l.account_id=a.id LEFT JOIN accounting_journals j ON j.id=l.journal_id AND j.status='posted' AND j.journal_date BETWEEN ? AND ? WHERE a.is_active=1 GROUP BY a.account_type");
-  $summary->execute([$from,$to]);$byType=[];foreach($summary->fetchAll() as $row)$byType[$row['account_type']]=['debit'=>(float)$row['debit'],'credit'=>(float)$row['credit']];
-  $income=max(0.0,($byType['income']['credit']??0)-($byType['income']['debit']??0));
-  $expense=max(0.0,($byType['expense']['debit']??0)-($byType['expense']['credit']??0));
+  $byType=[];
+  $pnl=$db->prepare("SELECT a.account_type,COALESCE(SUM(l.debit),0) debit,COALESCE(SUM(l.credit),0) credit FROM accounting_accounts a JOIN accounting_journal_lines l ON l.account_id=a.id JOIN accounting_journals j ON j.id=l.journal_id AND j.status='posted' WHERE a.is_active=1 AND a.account_type IN ('income','expense') AND j.journal_date BETWEEN ? AND ? GROUP BY a.account_type");
+  $pnl->execute([$from,$to]);foreach($pnl->fetchAll() as $row)$byType[$row['account_type']]=['debit'=>(float)$row['debit'],'credit'=>(float)$row['credit']];
+  $balance=$db->prepare("SELECT a.account_type,COALESCE(SUM(l.debit),0) debit,COALESCE(SUM(l.credit),0) credit FROM accounting_accounts a JOIN accounting_journal_lines l ON l.account_id=a.id JOIN accounting_journals j ON j.id=l.journal_id AND j.status='posted' WHERE a.is_active=1 AND a.account_type IN ('asset','liability','equity') AND j.journal_date<=? GROUP BY a.account_type");
+  $balance->execute([$to]);foreach($balance->fetchAll() as $row)$byType[$row['account_type']]=['debit'=>(float)$row['debit'],'credit'=>(float)$row['credit']];
+  $income=($byType['income']['credit']??0)-($byType['income']['debit']??0);
+  $expense=($byType['expense']['debit']??0)-($byType['expense']['credit']??0);
   $netProfit=$income-$expense;
   $totals=['asset'=>0.0,'liability'=>0.0,'equity'=>0.0,'income'=>$income,'expense'=>$expense];
   foreach(['asset','liability','equity'] as $type){$v=$byType[$type]??['debit'=>0,'credit'=>0];$totals[$type]=$type==='asset'?$v['debit']-$v['credit']:$v['credit']-$v['debit'];}
