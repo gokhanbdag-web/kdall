@@ -32,6 +32,7 @@ return [
     'nav.security' => 'Güvenlik Merkezi',
     'nav.data' => 'Veri Aktarımı',
     'nav.license' => 'Lisans & Güncellemeler',
+    'nav.audit' => 'Denetim Kayıtları',
     'nav.tasks' => 'Görevler',
     'nav.system' => 'SİSTEM',
     'nav.users' => 'Kullanıcılar & Yetkiler',

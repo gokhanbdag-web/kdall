@@ -189,6 +189,11 @@ if ($page === 'license') {
     exit;
 }
 
+if ($page === 'audit') {
+    \KodVadAll\Modules\Audit\AuditController::handle($pdo);
+    exit;
+}
+
 if ($page === 'settings') {
     KodVadAll\Modules\Settings\SettingsController::handle($pdo);
     exit;

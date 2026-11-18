@@ -36,6 +36,7 @@ return [
             ['label' => 'nav.security', 'page' => 'security', 'permission' => 'security.view', 'icon' => 'shield-check'],
             ['label' => 'nav.data', 'page' => 'data', 'permission' => 'data.view', 'icon' => 'file-spreadsheet'],
             ['label' => 'nav.license', 'page' => 'license', 'permission' => 'license.view', 'icon' => 'key-round'],
+            ['label' => 'nav.audit', 'page' => 'audit', 'permission' => 'audit.view', 'icon' => 'clipboard-list'],
             ['label' => 'nav.tasks', 'page' => 'tasks', 'permission' => 'tasks.view', 'icon' => 'list-checks']
         ]
     ],
