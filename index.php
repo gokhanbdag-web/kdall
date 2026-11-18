@@ -34,6 +34,21 @@ if (!$admin) {
     exit;
 }
 
+$page = (string)($_GET['page'] ?? 'dashboard');
+
+if ($page === 'customers') {
+    KodVadAll\Modules\Customers\CustomerController::handle($pdo, $admin);
+    exit;
+}
+
+if ($page !== 'dashboard') {
+    http_response_code(404);
+    $pageTitle = 'Sayfa bulunamadı';
+    $content = '<section class="panel"><h2>Bu modül henüz etkinleştirilmedi.</h2><p class="muted">Modül geliştirme sırası geldiğinde bu alan aktif edilecek.</p></section>';
+    require KD_ROOT . '/app/Views/layouts/admin.php';
+    exit;
+}
+
 kd_require_permission('dashboard.view');
 
 $counts = [];
@@ -45,15 +60,6 @@ $tables = [
 ];
 foreach ($tables as $table => $key) {
     $counts[$key] = (int)$pdo->query("SELECT COUNT(*) FROM {$table}")->fetchColumn();
-}
-
-$page = (string)($_GET['page'] ?? 'dashboard');
-if ($page !== 'dashboard') {
-    http_response_code(404);
-    $pageTitle = 'Sayfa bulunamadı';
-    $content = '<section class="panel"><h2>Bu modül henüz etkinleştirilmedi.</h2><p class="muted">Modül geliştirme sırası geldiğinde bu alan aktif edilecek.</p></section>';
-    require KD_ROOT . '/app/Views/layouts/admin.php';
-    exit;
 }
 
 require KD_ROOT . '/app/Views/dashboard/index.php';
