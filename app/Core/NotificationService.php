@@ -7,7 +7,7 @@ final class NotificationService
 {
  public static function notifyRoles(PDO $db,array $roles,string $title,string $message,?string $url=null,string $type='info'):void
  {
-  try{$roles=array_values(array_filter($roles,'is_string'));if(!$roles)return;$marks=implode(',',array_fill(0,count($roles),'?'));$q=$db->prepare("SELECT DISTINCT u.id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE r.slug IN ($marks) AND u.status='active'");$q->execute($roles);$ids=$q->fetchAll(PDO::FETCH_COLUMN);$ins=$db->prepare('INSERT INTO notifications (user_id,title,message,type,url,created_at) VALUES (?,?,?,?,?,NOW())');foreach($ids as $id)$ins->execute([(int)$id,mb_substr($title,0,190),mb_substr($message,0,500),$type,$url);}catch(Throwable $e){error_log('KodVadAll notification service: '.$e->getMessage());}
+  try{$roles=array_values(array_filter($roles,'is_string'));if(!$roles)return;$marks=implode(',',array_fill(0,count($roles),'?'));$q=$db->prepare("SELECT DISTINCT u.id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE r.slug IN ($marks) AND u.status='active'");$q->execute($roles);$ids=$q->fetchAll(PDO::FETCH_COLUMN);$ins=$db->prepare('INSERT INTO notifications (user_id,title,message,type,url,created_at) VALUES (?,?,?,?,?,NOW())');foreach($ids as $id)$ins->execute([(int)$id,mb_substr($title,0,190),mb_substr($message,0,500),$type,$url]);}catch(Throwable $e){error_log('KodVadAll notification service: '.$e->getMessage());}
  }
  public static function notifyUser(PDO $db,int $userId,string $title,string $message,?string $url=null,string $type='info'):void
  {
