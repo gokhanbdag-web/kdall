@@ -17,6 +17,7 @@ return [
             ['label' => 'nav.suppliers', 'page' => 'suppliers', 'permission' => 'suppliers.view', 'icon' => 'truck'],
             ['label' => 'nav.purchases', 'page' => 'purchases', 'permission' => 'purchases.view', 'icon' => 'clipboard-list'],
             ['label' => 'nav.finance', 'page' => 'finance', 'permission' => 'finance.view', 'icon' => 'wallet'],
+            ['label' => 'nav.invoices', 'page' => 'invoices', 'permission' => 'invoices.view', 'icon' => 'file-text'],
             ['label' => 'nav.tasks', 'page' => 'tasks', 'permission' => 'tasks.view', 'icon' => 'list-checks']
         ]
     ],

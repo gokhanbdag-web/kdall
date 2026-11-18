@@ -71,6 +71,11 @@ if ($page === 'finance') {
     exit;
 }
 
+if ($page === 'invoices') {
+    KodVadAll\Modules\Invoices\InvoiceController::handle($pdo, $admin);
+    exit;
+}
+
 if ($page === 'settings') {
     KodVadAll\Modules\Settings\SettingsController::handle($pdo);
     exit;
