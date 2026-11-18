@@ -50,6 +50,14 @@ final class AccountingPostingService
   $cash=self::account($db,$a['account_type']==='bank'?'102':'100');$capital=self::account($db,'500');
   self::journal($db,'finance_account_opening',$accountId,date('Y-m-d'),'Açılış bakiyesi · '.$a['name'],$userId,(string)$a['currency'],[[$cash,$amount,0,'Kasa/banka açılış bakiyesi'],[$capital,0,$amount,'Açılış sermayesi']]);
  }
+ public static function postPurchaseReceipt(PDO $db,int $receiptId,int $userId=0):void
+ {
+  $q=$db->prepare('SELECT pr.*,po.currency FROM purchase_receipts pr JOIN purchase_orders po ON po.id=pr.purchase_order_id WHERE pr.id=? FOR UPDATE');$q->execute([$receiptId]);$receipt=$q->fetch();
+  if(!$receipt)throw new RuntimeException('Muhasebeleştirilecek mal kabul kaydı bulunamadı.');
+  $q=$db->prepare('SELECT COALESCE(SUM(pri.quantity*poi.unit_cost),0) FROM purchase_receipt_items pri JOIN purchase_order_items poi ON poi.id=pri.purchase_order_item_id JOIN products p ON p.id=pri.product_id WHERE pri.receipt_id=? AND p.track_stock=1');$q->execute([$receiptId]);$cost=round((float)$q->fetchColumn(),2);if($cost<=0)return;
+  $inventory=self::account($db,'153');$receivedNotInvoiced=self::account($db,'159');
+  self::journal($db,'purchase_receipt',$receiptId,substr((string)$receipt['received_at'],0,10),'Mal kabul '.$receipt['receipt_number'],$userId,(string)$receipt['currency'],[[$inventory,$cost,0,'Teslim alınan ticari mallar'],[$receivedNotInvoiced,0,$cost,'Faturası beklenen mal kabul']]);
+ }
  public static function postInvoice(PDO $db,int $invoiceId,int $userId=0):void
  {
   $q=$db->prepare('SELECT * FROM invoices WHERE id=? FOR UPDATE');$q->execute([$invoiceId]);$i=$q->fetch();if(!$i)throw new RuntimeException('Muhasebeleştirilecek fatura bulunamadı.');
@@ -63,8 +71,14 @@ final class AccountingPostingService
    $costQuery->execute([$invoiceId]);$cost=round((float)$costQuery->fetchColumn(),2);
    if($cost>0){$lines[]=[self::account($db,'621'),$cost,0,'Satılan ürünlerin maliyeti'];$lines[]=[self::account($db,'153'),0,$cost,'Stok maliyet çıkışı'];}
   }elseif($i['invoice_type']==='purchase'){
-   $inventory=self::account($db,'153');$vat=$tax>0?self::account($db,'191'):0;$payable=self::account($db,'320');
-   $lines=[[$inventory,$subtotal,0,'Alış / stok maliyeti']];if($tax>0)$lines[]=[$vat,$tax,0,'İndirilecek KDV'];$lines[]=[$payable,0,$total,'Satıcı borcu'];
+   $stockQuery=$db->prepare('SELECT COALESCE(SUM(pri.quantity*poi.unit_cost),0) FROM purchase_receipt_items pri JOIN purchase_order_items poi ON poi.id=pri.purchase_order_item_id JOIN products p ON p.id=pri.product_id JOIN purchase_receipts pr ON pr.id=pri.receipt_id WHERE poi.purchase_order_id=? AND p.track_stock=1');
+   $stockQuery->execute([(int)$i['source_purchase_id']]);$stockCost=round((float)$stockQuery->fetchColumn(),2);
+   if($stockCost>$subtotal+0.02)throw new RuntimeException('Mal kabul stok maliyeti alış faturası ara toplamını aşıyor.');
+   $nonStockCost=round(max(0,$subtotal-$stockCost),2);$lines=[];
+   if($stockCost>0)$lines[]=[self::account($db,'159'),$stockCost,0,'Mal kabul geçici hesabının kapatılması'];
+   if($nonStockCost>0)$lines[]=[self::account($db,'770'),$nonStockCost,0,'Stok dışı satın alma gideri'];
+   if($tax>0)$lines[]=[self::account($db,'191'),$tax,0,'İndirilecek KDV'];
+   $lines[]=[self::account($db,'320'),0,$total,'Satıcı borcu'];
   }else{return;}
   self::journal($db,'invoice',$invoiceId,(string)$i['issue_date'],'Fatura '.$i['invoice_number'],$userId,$currency,$lines);
  }
