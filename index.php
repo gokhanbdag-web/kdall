@@ -209,6 +209,11 @@ if ($page === 'assets') {
     exit;
 }
 
+if ($page === 'production') {
+    \KodVadAll\Modules\Production\ProductionController::handle($pdo, $admin);
+    exit;
+}
+
 if ($page === 'settings') {
     KodVadAll\Modules\Settings\SettingsController::handle($pdo);
     exit;

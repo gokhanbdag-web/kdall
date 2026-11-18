@@ -516,3 +516,8 @@ input[type=date],input[type=datetime-local],input[type=time],input[type=month]{-
 .asset-edit-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0}
 .asset-edit-form .field-wide{grid-column:1/-1}
 @media(max-width:600px){.asset-edit-form{grid-template-columns:1fr}.asset-edit-form .field-wide{grid-column:auto}}
+
+/* Production recipes */
+.production-components{display:grid;grid-template-columns:1fr 110px;gap:8px;margin:10px 0}
+.production-components label{font-size:11px}
+@media(max-width:600px){.production-components{grid-template-columns:1fr 90px}}
