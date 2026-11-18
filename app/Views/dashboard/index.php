@@ -20,7 +20,7 @@ ob_start();
 <section class="stats" aria-label="İşletme özeti">
     <?php foreach ($cards as $card): ?>
         <article class="stat-card">
-            <div class="stat-top"><span><?= kd_e(kd_t($card['label'])) ?></span><span class="stat-icon <?= kd_e($card['tone']) ?>"><?= kd_e($card['icon']) ?></span></div>
+            <div class="stat-top"><span><?= kd_e(kd_t($card['label'])) ?></span><span class="stat-icon <?= kd_e($card['tone']) ?>" data-icon="<?= kd_e($card['icon']) ?>" aria-hidden="true"></span></div>
             <strong><?= number_format((int)$card['count'], 0, ',', '.') ?></strong>
             <small><?= kd_e(kd_t('dashboard.total')) ?></small>
         </article>
