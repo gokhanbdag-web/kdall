@@ -133,6 +133,15 @@ final class AccountingPostingService
   $cash=self::account($db,$t['account_type']==='bank'?'102':'100');$lines=[];if($netPart>0)$lines[]=[self::account($db,'610'),$netPart,0,'Satış iadesi'];if($taxPart>0)$lines[]=[self::account($db,'391'),$taxPart,0,'İade edilen satış KDV'];$lines[]=[$cash,0,$amount,'Müşteriye iade ödemesi'];
   self::journal($db,'sales_return_refund',$transactionId,(string)$t['transaction_date'],'Müşteri iadesi '.$r['return_number'],$userId,(string)$t['currency'],$lines);
  }
+ public static function postStocktake(PDO $db,int $stocktakeId,int $userId=0):void
+ {
+  $q=$db->prepare("SELECT * FROM warehouse_stocktakes WHERE id=? AND status='completed' FOR UPDATE");$q->execute([$stocktakeId]);$stocktake=$q->fetch();
+  if(!$stocktake)throw new RuntimeException('Muhasebeleştirilecek tamamlanmış stok sayımı bulunamadı.');
+  $q=$db->prepare('SELECT i.product_id,i.variance,p.name,p.purchase_price FROM warehouse_stocktake_items i JOIN products p ON p.id=i.product_id WHERE i.stocktake_id=? AND i.variance IS NOT NULL AND ABS(i.variance)>0.0005 ORDER BY i.product_id FOR UPDATE');$q->execute([$stocktakeId]);$lines=[];
+  foreach($q->fetchAll() as $item){$amount=round(abs((float)$item['variance'])*(float)$item['purchase_price'],2);if($amount<=0)continue;if((float)$item['variance']>0){$lines[]=[self::account($db,'153'),$amount,0,'Sayım fazlası · '.$item['name']];$lines[]=[self::account($db,'679'),0,$amount,'Stok sayım fazlası geliri'];}else{$lines[]=[self::account($db,'689'),$amount,0,'Stok sayım eksiği · '.$item['name']];$lines[]=[self::account($db,'153'),0,$amount,'Sayım nedeniyle stok çıkışı'];}}
+  if(!$lines)return;
+  self::journal($db,'stocktake',(int)$stocktake['id'],substr((string)$stocktake['completed_at'],0,10),'Depo sayımı '.$stocktake['stocktake_number'],$userId,'TRY',$lines);
+ }
  public static function reverseInvoice(PDO $db,int $invoiceId,int $userId=0):void
  {
   $q=$db->prepare("SELECT j.id,j.journal_no,j.journal_date FROM accounting_journals j WHERE j.source_type='invoice' AND j.source_id=? LIMIT 1 FOR UPDATE");$q->execute([$invoiceId]);$original=$q->fetch();if(!$original)return;
