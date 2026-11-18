@@ -15,7 +15,7 @@ final class InvoiceController
    try{
     $form=(string)($_POST['form_action']??'');
     if($form==='create'){
-     $kind=(string)($_POST['invoice_type']??'sales');$source=(int)($_POST['source_id']??0);$due=trim((string)($_POST['due_date']??''));$notes=trim((string)($_POST['notes']??''));
+     $kind=(string)($_POST['invoice_type']??'sales');$source=(int)($_POST[$kind==='purchase'?'source_purchase_id':'source_order_id']??0);$due=trim((string)($_POST['due_date']??''));$notes=trim((string)($_POST['notes']??''));
      if(!in_array($kind,['sales','purchase','proforma'],true)||$source<1)throw new RuntimeException('Fatura türü ve kaynak belge seçin.');
      if($due!==''&&!preg_match('/^\d{4}-\d{2}-\d{2}$/',$due))throw new RuntimeException('Vade tarihi geçersiz.');
      if($kind==='purchase'){$q=$db->prepare("SELECT * FROM purchase_orders WHERE id=? AND status='received'");$q->execute([$source]);$src=$q->fetch();if(!$src)throw new RuntimeException('Fatura için mal kabulü yapılmış satın alma siparişi seçin.');$q=$db->prepare('SELECT * FROM purchase_order_items WHERE purchase_order_id=?');$q->execute([$source]);$sourceItems=$q->fetchAll();$customerId=null;$supplierId=(int)$src['supplier_id'];$sub=(float)$src['subtotal'];$tax=(float)$src['tax_total'];$total=(float)$src['grand_total'];$currency=(string)$src['currency'];}
