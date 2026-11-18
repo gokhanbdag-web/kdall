@@ -68,6 +68,31 @@ try {
     $supplierId = (int)$pdo->lastInsertId();
     $pdo->prepare("INSERT INTO purchase_orders (purchase_number,supplier_id,status,subtotal,tax_total,grand_total,created_at) VALUES (?,?,'draft',0,0,0,NOW())")->execute(['MIGRATION-TEST-PO', $supplierId]);
 
+    // Apply migration 040 before seeding a legacy production order for migration 041.
+    $beforeProductionWarehouse = sys_get_temp_dir() . '/kdall-migrations-pre-041-' . bin2hex(random_bytes(5));
+    if (!mkdir($beforeProductionWarehouse, 0700, true)) {
+        throw new RuntimeException('Could not create temporary production migration directory.');
+    }
+    foreach ($files as $file) {
+        if (strcmp(basename($file), '041_production_order_warehouse.sql') >= 0) {
+            continue;
+        }
+        if (!copy($file, $beforeProductionWarehouse . '/' . basename($file))) {
+            throw new RuntimeException('Could not stage migration: ' . basename($file));
+        }
+    }
+    Migrator::run($pdo, $beforeProductionWarehouse);
+    foreach (glob($beforeProductionWarehouse . '/*') ?: [] as $stagedFile) {
+        unlink($stagedFile);
+    }
+    rmdir($beforeProductionWarehouse);
+
+    $pdo->prepare("INSERT INTO products (sku,name,status,created_at) VALUES (? ,?,'active',NOW())")->execute(['MIGRATION-PROD-SKU','MIGRATION-PROD-OUTPUT']);
+    $outputProductId = (int)$pdo->lastInsertId();
+    $pdo->prepare("INSERT INTO production_recipes (name,output_product_id,batch_size,status,created_at) VALUES (?,?,1,'active',NOW())")->execute(['MIGRATION-TEST-RECIPE',$outputProductId]);
+    $recipeId = (int)$pdo->lastInsertId();
+    $pdo->prepare("INSERT INTO production_orders (order_number,recipe_id,output_quantity,status,created_at) VALUES (?, ?,1,'planned',NOW())")->execute(['MIGRATION-TEST-PRODUCTION',$recipeId]);
+
     Migrator::run($pdo, $directory);
     $applied = $pdo->query('SELECT migration FROM schema_migrations ORDER BY migration')->fetchAll(PDO::FETCH_COLUMN);
     if ($applied !== $expected) {
@@ -97,6 +122,12 @@ try {
     $legacyPurchase->execute(['MIGRATION-TEST-PO']);
     if ((int)$legacyPurchase->fetchColumn() !== 1) {
         throw new RuntimeException('Existing purchase orders were not backfilled to the default warehouse.');
+    }
+
+    $legacyProduction = $pdo->prepare('SELECT w.is_default FROM production_orders po LEFT JOIN warehouses w ON w.id=po.warehouse_id WHERE po.order_number=?');
+    $legacyProduction->execute(['MIGRATION-TEST-PRODUCTION']);
+    if ((int)$legacyProduction->fetchColumn() !== 1) {
+        throw new RuntimeException('Existing production orders were not backfilled to the default warehouse.');
     }
 
     foreach (['payment_transactions', 'accounting_journals', 'warehouse_stocktakes'] as $table) {
