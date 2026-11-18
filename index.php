@@ -121,6 +121,11 @@ if ($page === 'site') {
     exit;
 }
 
+if ($page === 'payments') {
+    KodVadAll\Modules\Payments\PaymentsController::handle($pdo);
+    exit;
+}
+
 if ($page === 'settings') {
     KodVadAll\Modules\Settings\SettingsController::handle($pdo);
     exit;

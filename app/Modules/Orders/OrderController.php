@@ -110,6 +110,7 @@ final class OrderController
                     if (!$order) throw new RuntimeException('Sipariş bulunamadı.');
                     $from=(string)$order['status'];
                     self::validateTransition($from,$target);
+                    if($target==='confirmed' && in_array((string)($order["payment_method"]??'manual'),['paytr','bank_transfer'],true) && (string)($order["payment_status"]??'pending')!=='paid') throw new RuntimeException('Çevrimiçi ödeme veya banka havalesi doğrulanmadan sipariş onaylanamaz.');
                     if ($target==='confirmed' && $from==='draft') self::deductStock($pdo,$orderId,$number=(string)$order['order_number']);
                     if ($target==='cancelled' && !empty($order['stock_deducted_at']) && empty($order['stock_reversed_at'])) self::restoreStock($pdo,$orderId,(string)$order['order_number']);
                     $pdo->prepare('UPDATE orders SET status=?,stock_deducted_at=IF(?=?,NOW(),stock_deducted_at),stock_reversed_at=IF(?=? AND stock_deducted_at IS NOT NULL,NOW(),stock_reversed_at),updated_at=NOW() WHERE id=?')->execute([$target,$target,'confirmed',$target,'cancelled',$orderId]);
