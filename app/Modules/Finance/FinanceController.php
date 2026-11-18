@@ -17,8 +17,8 @@ final class FinanceController
     if($form==='account'){
      $name=trim((string)($_POST['name']??''));$type=(string)($_POST['account_type']??'cash');$currency=strtoupper((string)($_POST['currency']??'TRY'));$opening=(float)($_POST['opening_balance']??0);
      if($name===''||mb_strlen($name)>150||!in_array($type,['cash','bank'],true)||!in_array($currency,['TRY','USD','EUR','GBP'],true)||$opening<0)throw new RuntimeException('Hesap bilgilerini kontrol edin.');
-     $db->prepare('INSERT INTO financial_accounts (name,account_type,currency,opening_balance,bank_name,iban,notes,status,created_at) VALUES (?,?,?,?,?,?,?,\'active\',NOW())')->execute([$name,$type,$currency,$opening,trim((string)($_POST['bank_name']??''))?:null,trim((string)($_POST['iban']??''))?:null,trim((string)($_POST['notes']??''))?:null]);
-     $id=(int)$db->lastInsertId();kd_audit('finance.account_created','financial_account',$id);self::go('accounts');
+     $db->beginTransaction();$db->prepare('INSERT INTO financial_accounts (name,account_type,currency,opening_balance,bank_name,iban,notes,status,created_at) VALUES (?,?,?,?,?,?,?,\'active\',NOW())')->execute([$name,$type,$currency,$opening,trim((string)($_POST['bank_name']??''))?:null,trim((string)($_POST['iban']??''))?:null,trim((string)($_POST['notes']??''))?:null]);
+     $id=(int)$db->lastInsertId();\KodVadAll\Core\AccountingPostingService::postFinancialAccountOpening($db,$id,(int)$admin['id']);$db->commit();kd_audit('finance.account_created','financial_account',$id);self::go('accounts');
     }
     if($form==='transaction'){
      $account=(int)($_POST['account_id']??0);$type=(string)($_POST['transaction_type']??'');$amount=(float)($_POST['amount']??0);$date=(string)($_POST['transaction_date']??date('Y-m-d'));
@@ -28,17 +28,17 @@ final class FinanceController
      if($type==='collection'){$partyType='customer';$partyId=(int)($_POST['party_id']??0);$q=$db->prepare("SELECT id FROM customers WHERE id=? AND status='active'");$q->execute([$partyId]);if(!$q->fetchColumn())throw new RuntimeException('Tahsilat için aktif müşteri seçin.');}
      if($type==='supplier_payment'){$partyType='supplier';$partyId=(int)($_POST['party_id']??0);$q=$db->prepare("SELECT id FROM suppliers WHERE id=? AND status='active'");$q->execute([$partyId]);if(!$q->fetchColumn())throw new RuntimeException('Ödeme için aktif tedarikçi seçin.');}
      $direction=in_array($type,['income','collection'],true)?'credit':'debit';
-     $db->prepare('INSERT INTO financial_transactions (account_id,transaction_type,direction,amount,currency,transaction_date,party_type,party_id,category,reference_no,description,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,NOW())')->execute([$account,$type,$direction,$amount,$acc['currency'],$date,$partyType,$partyId,trim((string)($_POST['category']??''))?:null,trim((string)($_POST['reference_no']??''))?:null,trim((string)($_POST['description']??''))?:null,(int)$admin['id']]);
-     $id=(int)$db->lastInsertId();kd_audit('finance.transaction_created','financial_transaction',$id);self::go('list');
+     $db->beginTransaction();$db->prepare('INSERT INTO financial_transactions (account_id,transaction_type,direction,amount,currency,transaction_date,party_type,party_id,category,reference_no,description,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,NOW())')->execute([$account,$type,$direction,$amount,$acc['currency'],$date,$partyType,$partyId,trim((string)($_POST['category']??''))?:null,trim((string)($_POST['reference_no']??''))?:null,trim((string)($_POST['description']??''))?:null,(int)$admin['id']]);
+     $id=(int)$db->lastInsertId();\KodVadAll\Core\AccountingPostingService::postFinancialTransaction($db,$id,(int)$admin['id']);$db->commit();kd_audit('finance.transaction_created','financial_transaction',$id);self::go('list');
     }
     if($form==='transfer'){
      $from=(int)($_POST['from_account']??0);$to=(int)($_POST['to_account']??0);$amount=(float)($_POST['amount']??0);$date=(string)($_POST['transaction_date']??date('Y-m-d'));
      if($from<1||$to<1||$from===$to||$amount<=0||!preg_match('/^\d{4}-\d{2}-\d{2}$/',$date))throw new RuntimeException('Transfer bilgilerini kontrol edin.');
      $q=$db->prepare("SELECT id,currency FROM financial_accounts WHERE id IN (?,?) AND status='active' ORDER BY id");$q->execute([$from,$to]);$accs=$q->fetchAll();if(count($accs)!==2||$accs[0]['currency']!==$accs[1]['currency'])throw new RuntimeException('İki aktif hesap ve aynı para birimi seçilmelidir.');
      $code='TRF-'.bin2hex(random_bytes(8));$db->beginTransaction();$ins=$db->prepare('INSERT INTO financial_transactions (account_id,transaction_type,direction,amount,currency,transaction_date,transfer_code,description,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,NOW())');
-     $ins->execute([$from,'transfer_out','debit',$amount,$accs[0]['currency'],$date,$code,'Hesaplar arası transfer · '.$code,(int)$admin['id']]);
+     $ins->execute([$from,'transfer_out','debit',$amount,$accs[0]['currency'],$date,$code,'Hesaplar arası transfer · '.$code,(int)$admin['id']]);$transferOutId=(int)$db->lastInsertId();
      $ins->execute([$to,'transfer_in','credit',$amount,$accs[0]['currency'],$date,$code,'Hesaplar arası transfer · '.$code,(int)$admin['id']]);
-     $db->commit();kd_audit('finance.transfer_created','financial_transaction');self::go('list');
+     \KodVadAll\Core\AccountingPostingService::postFinancialTransaction($db,$transferOutId,(int)$admin['id']);$db->commit();kd_audit('finance.transfer_created','financial_transaction');self::go('list');
     }
    }catch(Throwable $e){if($db->inTransaction())$db->rollBack();error_log('KodVadAll finance: '.$e->getMessage());$errors[]=$e instanceof RuntimeException?$e->getMessage():'Finans işlemi tamamlanamadı.';}
   }
