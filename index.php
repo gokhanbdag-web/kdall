@@ -21,14 +21,20 @@ if (!$admin) {
             session_regenerate_id(true);
             unset($user['password_hash']);
             $_SESSION['user'] = $user;
+            $loginUpdate = $pdo->prepare('UPDATE users SET last_login_at = NOW() WHERE id = ?');
+            $loginUpdate->execute([(int)$user['id']]);
+            kd_audit('auth.login', 'user', (int)$user['id']);
             header('Location: index.php');
             exit;
         }
+        kd_audit('auth.login_failed', 'auth');
         $error = 'E-posta veya parola hatalı.';
     }
     ?><!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>KodVadAll · Giriş</title><link rel="stylesheet" href="assets/app.css"></head><body class="auth"><main class="auth-card"><div class="brand-mark">K</div><p class="eyebrow">İŞLETME YÖNETİM PLATFORMU</p><h1>Tekrar hoş geldiniz</h1><p class="muted">Yönetim panelinize güvenli giriş yapın.</p><?php if (!empty($error)): ?><div class="alert"><?= kd_e($error) ?></div><?php endif; ?><form method="post"><?= kd_csrf_field() ?><label>E-posta<input type="email" name="email" required autocomplete="username"></label><label>Parola<input type="password" name="password" required autocomplete="current-password"></label><button class="btn primary full">Giriş yap</button></form></main></body></html><?php
     exit;
 }
+
+kd_require_permission('dashboard.view');
 
 $counts = [];
 foreach (['customers'=>'Müşteriler','products'=>'Ürünler','orders'=>'Siparişler','tasks'=>'Görevler'] as $table=>$label) {
