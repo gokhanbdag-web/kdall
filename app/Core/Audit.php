@@ -23,7 +23,7 @@ final class Audit
                  VALUES (?,?,?,?,?,?,NOW())'
             );
             $stmt->execute([
-                $userId ?? (int)($_SESSION['user']['id'] ?? 0) ?: null,
+                ($userId !== null && $userId > 0) ? $userId : (((int)($_SESSION['user']['id'] ?? 0)) ?: null),
                 substr($action, 0, 100),
                 $entityType !== null ? substr($entityType, 0, 80) : null,
                 $entityId,
