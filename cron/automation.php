@@ -6,4 +6,5 @@ $pdo=kd_db();
 $count=\KodVadAll\Core\NotificationService::runDaily($pdo);
 $delivered=\KodVadAll\Core\WebhookService::deliverPending($pdo);
 $backup=\KodVadAll\Core\BackupService::runScheduled($pdo);
-echo 'Automation completed. Notifications: '.$count.'; webhooks delivered: '.$delivered.'; scheduled backup: '.($backup['file_name']??'not due').PHP_EOL;
+$reminders=\KodVadAll\Core\NotificationService::runReminders($pdo);
+echo 'Automation completed. Notifications: '.$count.'; webhooks delivered: '.$delivered.'; scheduled backup: '.($backup['file_name']??'not due').'; reminders: '.$reminders.PHP_EOL;

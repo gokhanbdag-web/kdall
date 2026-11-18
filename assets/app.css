@@ -526,3 +526,11 @@ input[type=date],input[type=datetime-local],input[type=time],input[type=month]{-
 .service-edit{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0}
 .service-edit label{font-size:11px}
 @media(max-width:600px){.service-edit{grid-template-columns:1fr}}
+
+/* Calendar agenda */
+.calendar-agenda{display:grid;gap:8px;padding:12px}
+.calendar-event{display:flex;align-items:center;gap:13px;padding:12px;border:1px solid var(--line);border-radius:10px}
+.calendar-event-date{width:52px;min-width:52px;display:grid;place-items:center;padding:8px;border-radius:9px;background:#f1f5fb}
+.calendar-event-date strong{font-size:20px}.calendar-event-date small{font-size:10px;color:var(--muted)}
+.calendar-event-info{display:grid;gap:4px;flex:1;min-width:0}.calendar-event-info span,.calendar-event-info small{font-size:10px;color:var(--muted)}
+@media(max-width:560px){.calendar-event{align-items:flex-start;flex-wrap:wrap}.calendar-event form{width:100%}}

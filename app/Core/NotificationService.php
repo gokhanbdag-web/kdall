@@ -24,6 +24,13 @@ final class NotificationService
   foreach($contractRows as $r){if(self::claim($db,'contract_expiry',(string)$r['id'],'Sözleşme bitiş tarihi yaklaşıyor')){self::notifyRoles($db,['owner','admin','manager'],'Sözleşme bitişi yaklaşıyor',$r['contract_number'].' · '.$r['title'].' sözleşmesinin bitiş tarihi '.$r['end_date'].'.','index.php?page=contracts&action=view&id='.(int)$r['id'],'warning');$sent++;}}
   return $sent;
  }
+ public static function runReminders(PDO $db):int
+ {
+  $rows=$db->query("SELECT id,title,assigned_user_id,start_at,reminder_minutes FROM calendar_events WHERE status='scheduled' AND reminder_sent_at IS NULL AND reminder_minutes IS NOT NULL AND start_at>NOW() AND start_at<=DATE_ADD(NOW(),INTERVAL reminder_minutes MINUTE) ORDER BY start_at LIMIT 200")->fetchAll();$sent=0;
+  foreach($rows as $row){$claim=$db->prepare("UPDATE calendar_events SET reminder_sent_at=NOW() WHERE id=? AND reminder_sent_at IS NULL AND status='scheduled'");$claim->execute([(int)$row['id']]);if($claim->rowCount()<1)continue;$message=$row['title'].' etkinliği '.date('d.m.Y H:i',strtotime($row['start_at'])).' tarihinde başlayacak.';if(!empty($row['assigned_user_id']))self::notifyUser($db,(int)$row['assigned_user_id'],'Takvim hatırlatması',$message,'index.php?page=calendar','warning');else self::notifyRoles($db,['owner','admin','manager'],'Takvim hatırlatması',$message,'index.php?page=calendar','warning');$sent++;}
+  return $sent;
+ }
+
  private static function claim(PDO $db,string $rule,string $reference,string $message):bool
  {
   $q=$db->prepare("INSERT IGNORE INTO automation_logs (rule_key,reference_id,run_date,status,message,created_at) VALUES (?,?,CURDATE(),'done',?,NOW())");$q->execute([$rule,$reference,$message]);return $q->rowCount()>0;

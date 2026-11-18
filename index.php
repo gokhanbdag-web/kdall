@@ -219,6 +219,11 @@ if ($page === 'service') {
     exit;
 }
 
+if ($page === 'calendar') {
+    \KodVadAll\Modules\Calendar\CalendarController::handle($pdo, $admin);
+    exit;
+}
+
 if ($page === 'settings') {
     KodVadAll\Modules\Settings\SettingsController::handle($pdo);
     exit;

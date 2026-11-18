@@ -42,6 +42,7 @@ return [
             ['label' => 'nav.assets', 'page' => 'assets', 'permission' => 'assets.view', 'icon' => 'monitor-cog'],
             ['label' => 'nav.production', 'page' => 'production', 'permission' => 'production.view', 'icon' => 'factory'],
             ['label' => 'nav.service', 'page' => 'service', 'permission' => 'service.view', 'icon' => 'wrench'],
+            ['label' => 'nav.calendar', 'page' => 'calendar', 'permission' => 'calendar.view', 'icon' => 'calendar-days'],
             ['label' => 'nav.tasks', 'page' => 'tasks', 'permission' => 'tasks.view', 'icon' => 'list-checks']
         ]
     ],
