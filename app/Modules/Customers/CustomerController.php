@@ -15,6 +15,7 @@ final class CustomerController
         $action = (string)($_GET['action'] ?? 'list');
         $id = max(0, (int)($_GET['id'] ?? 0));
         $errors = [];
+        $formInput = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             kd_csrf_check();
@@ -24,6 +25,7 @@ final class CustomerController
             try {
                 if ($formAction === 'create') {
                     $data = self::validatedInput($_POST, $errors);
+                    $formInput = $data;
                     if (!$errors) {
                         $pdo->beginTransaction();
                         $stmt = $pdo->prepare(
@@ -43,6 +45,7 @@ final class CustomerController
                 } elseif ($formAction === 'update') {
                     $customerId = max(0,(int)($_POST['customer_id'] ?? 0));
                     $data = self::validatedInput($_POST, $errors);
+                    $formInput = $data;
                     $status = in_array($_POST['status'] ?? '', ['active','inactive'], true) ? (string)$_POST['status'] : 'active';
                     if (!$errors && $customerId > 0) {
                         $stmt = $pdo->prepare(
@@ -54,6 +57,7 @@ final class CustomerController
                         self::redirect('view',$customerId);
                     }
                     $id = $customerId;
+                    $formInput['status'] = $status;
                     $action = 'edit';
                 } elseif ($formAction === 'activity') {
                     $customerId = max(0,(int)($_POST['customer_id'] ?? 0));
@@ -98,6 +102,9 @@ final class CustomerController
                 if (!$customer) {
                     self::notFound();
                 }
+            }
+            if ($formInput) {
+                $customer = array_merge($customer, $formInput);
             }
             $pageTitle = $action === 'create' ? 'Yeni müşteri' : 'Müşteriyi düzenle';
             ob_start();
