@@ -1,15 +1,11 @@
 # KodVadAll
 
-Self-hosted, modular business management platform.
+Self-hosted modular business management platform.
 
-- PHP 8.5+, native PHP (no Composer)
-- MySQL 8+ / MariaDB compatible schema
-- Browser-based first-run installer
-- Turkish-first interface, translation-ready architecture
-- Single-business self-hosted deployment; no SaaS tenancy in this edition
+- PHP 8.5+, native PHP; no Composer or SSH required by customers.
+- MySQL 8+ / MariaDB compatible.
+- Browser-based first-run installer.
+- Turkish-first interface with translation-ready labels.
+- Single-business self-hosted edition. SaaS tenancy is intentionally out of scope.
 
-## Deployment
-The production deployment is managed by the server's existing GitHub webhook. Never commit production secrets or database credentials.
-
-## Installation
-Open the application URL and follow the browser installer. The installer creates the initial administrator and database schema.
+Production secrets and database credentials must never be committed.

@@ -1,0 +1,5 @@
+/storage/*.php
+/storage/*.log
+/storage/cache/*
+/storage/sessions/*
+!/storage/.htaccess
