@@ -90,7 +90,7 @@ AND NOT EXISTS (SELECT 1 FROM accounting_journal_lines x WHERE x.journal_id=j.id
 INSERT IGNORE INTO accounting_journals(journal_no,journal_date,description,source_type,source_id,created_by,created_at)
 SELECT CONCAT('OTO-TRF-',t.id),t.transaction_date,CONCAT('Kasa/banka transferi ',t.transfer_code),'finance_transfer',t.id,t.created_by,NOW()
 FROM financial_transactions t
-WHERE t.transaction_type='transfer_out' AND t.transfer_code IS NOT NULL;
+WHERE t.transaction_type='transfer_out' AND t.transfer_code IS NOT NULL AND EXISTS (SELECT 1 FROM financial_transactions ti WHERE ti.transfer_code=t.transfer_code AND ti.transaction_type='transfer_in' AND ti.amount=t.amount AND ti.currency=t.currency);
 
 INSERT INTO accounting_journal_lines(journal_id,account_id,currency,debit,credit,line_description,created_at)
 SELECT j.id,dest.id,t.currency,t.amount,0,'Transfer girişi',NOW()
@@ -105,6 +105,7 @@ AND NOT EXISTS (SELECT 1 FROM accounting_journal_lines x WHERE x.journal_id=j.id
 INSERT INTO accounting_journal_lines(journal_id,account_id,currency,debit,credit,line_description,created_at)
 SELECT j.id,src.id,t.currency,0,t.amount,'Transfer çıkışı',NOW()
 FROM financial_transactions t
+JOIN financial_transactions ti ON ti.transfer_code=t.transfer_code AND ti.transaction_type='transfer_in' AND ti.amount=t.amount AND ti.currency=t.currency
 JOIN financial_accounts fa ON fa.id=t.account_id
 JOIN accounting_accounts src ON src.code=IF(fa.account_type='bank','102','100')
 JOIN accounting_journals j ON j.source_type='finance_transfer' AND j.source_id=t.id
