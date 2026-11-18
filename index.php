@@ -62,7 +62,7 @@ if ($page === 'users') {
 }
 
 if ($page === 'suppliers' || $page === 'purchases') {
-    KodVadAll\\Modules\\Purchasing\\PurchasingController::handle($pdo, $admin, $page);
+    KodVadAll\Modules\Purchasing\PurchasingController::handle($pdo, $admin, $page);
     exit;
 }
 
