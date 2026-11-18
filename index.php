@@ -194,6 +194,11 @@ if ($page === 'audit') {
     exit;
 }
 
+if ($page === 'pos') {
+    \KodVadAll\Modules\POS\POSController::handle($pdo, $admin);
+    exit;
+}
+
 if ($page === 'settings') {
     KodVadAll\Modules\Settings\SettingsController::handle($pdo);
     exit;

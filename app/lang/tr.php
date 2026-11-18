@@ -33,6 +33,7 @@ return [
     'nav.data' => 'Veri Aktarımı',
     'nav.license' => 'Lisans & Güncellemeler',
     'nav.audit' => 'Denetim Kayıtları',
+    'nav.pos' => 'Hızlı Satış / POS',
     'nav.tasks' => 'Görevler',
     'nav.system' => 'SİSTEM',
     'nav.users' => 'Kullanıcılar & Yetkiler',

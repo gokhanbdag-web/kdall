@@ -102,5 +102,9 @@ jobs:
         run: php -l tools/generate-license-keypair.php && php -l tools/issue-license.php
       - name: Run audit module smoke tests
         run: php tests/audit_module_smoke.php
+      - name: Run POS module smoke tests
+        run: php tests/pos_module_smoke.php
+      - name: Lint POS API endpoint
+        run: php -l pos_api.php
       - name: Check JavaScript syntax
         run: node --check assets/admin.js && node --check assets/orders.js
