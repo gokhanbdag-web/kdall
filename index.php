@@ -37,7 +37,23 @@ if (!$admin) {
 kd_require_permission('dashboard.view');
 
 $counts = [];
-foreach (['customers'=>'Müşteriler','products'=>'Ürünler','orders'=>'Siparişler','tasks'=>'Görevler'] as $table=>$label) {
-    $counts[$label] = (int)$pdo->query("SELECT COUNT(*) FROM {$table}")->fetchColumn();
+$tables = [
+    'customers' => 'customers',
+    'products' => 'products',
+    'orders' => 'orders',
+    'tasks' => 'tasks'
+];
+foreach ($tables as $table => $key) {
+    $counts[$key] = (int)$pdo->query("SELECT COUNT(*) FROM {$table}")->fetchColumn();
 }
-?><!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>KodVadAll · Genel Bakış</title><link rel="stylesheet" href="assets/app.css"></head><body><aside class="sidebar"><a class="brand" href="index.php"><span class="brand-mark">K</span><span>KodVadAll<small>BUSINESS SUITE</small></span></a><div class="nav-caption">ÇALIŞMA ALANI</div><a class="nav-item active" href="index.php">◫ <span>Genel Bakış</span></a><div class="nav-caption">YÖNETİM MODÜLLERİ</div><?php foreach (['CRM'=>'Müşteriler','Ürün & Stok'=>'Ürünler','Satış'=>'Siparişler','İş Takibi'=>'Görevler'] as $group=>$label): ?><a class="nav-item" href="#"><span>◇</span><span><?= kd_e($group) ?></span><span class="soon">Hazırlanıyor</span></a><?php endforeach; ?><div class="sidebar-bottom"><span class="avatar"><?= kd_e(mb_strtoupper(mb_substr($admin['name'],0,1))) ?></span><span><?= kd_e($admin['name']) ?><small>Yönetici</small></span><a class="logout" href="logout.php">Çıkış</a></div></aside><main class="main"><header class="topbar"><div><span class="eyebrow">KONTROL MERKEZİ</span><h1>Genel Bakış</h1></div><div class="top-user"><?= kd_e($admin['name']) ?></div></header><section class="welcome"><div><span class="eyebrow light">KODVADALL BUSINESS SUITE</span><h2>İşinizin tüm kontrolü<br>tek bir yerde.</h2><p>Yönetim altyapınız hazır. Modüller bu merkez üzerinden bir araya gelecek.</p></div><div class="welcome-orbit">K</div></section><section class="stats"><?php foreach ($counts as $label=>$count): ?><article class="stat-card"><span><?= kd_e($label) ?></span><strong><?= number_format($count,0,',','.') ?></strong><small>Toplam kayıt</small></article><?php endforeach; ?></section><section class="panel"><div class="panel-head"><div><h3>Platform durumu</h3><p>Kurulum başarıyla tamamlandı.</p></div><span class="status"><i></i> Sistem aktif</span></div><div class="progress-track"><span></span></div><p class="muted small">KodVadAll temel altyapısı çalışıyor. İş modülleri güvenli ve bağımsız bileşenler halinde genişletilecek.</p></section><footer>© <?= date('Y') ?> KodVadAll · Self-hosted Business Suite</footer></main></body></html>
+
+$page = (string)($_GET['page'] ?? 'dashboard');
+if ($page !== 'dashboard') {
+    http_response_code(404);
+    $pageTitle = 'Sayfa bulunamadı';
+    $content = '<section class="panel"><h2>Bu modül henüz etkinleştirilmedi.</h2><p class="muted">Modül geliştirme sırası geldiğinde bu alan aktif edilecek.</p></section>';
+    require KD_ROOT . '/app/Views/layouts/admin.php';
+    exit;
+}
+
+require KD_ROOT . '/app/Views/dashboard/index.php';
