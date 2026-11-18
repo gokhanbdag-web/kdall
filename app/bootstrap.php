@@ -15,14 +15,20 @@ ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 
 spl_autoload_register(static function (string $class): void {
-    $prefix = 'KodVadAll\\Core\\';
-    if (!str_starts_with($class, $prefix)) {
+    $maps = [
+        'KodVadAll\\Core\\' => KD_ROOT . '/app/Core/',
+        'KodVadAll\\Modules\\' => KD_ROOT . '/app/Modules/'
+    ];
+    foreach ($maps as $prefix => $basePath) {
+        if (!str_starts_with($class, $prefix)) {
+            continue;
+        }
+        $relative = substr($class, strlen($prefix));
+        $file = $basePath . str_replace('\\', '/', $relative) . '.php';
+        if (is_file($file)) {
+            require $file;
+        }
         return;
-    }
-    $relative = substr($class, strlen($prefix));
-    $file = KD_ROOT . '/app/Core/' . str_replace('\\', '/', $relative) . '.php';
-    if (is_file($file)) {
-        require $file;
     }
 });
 
