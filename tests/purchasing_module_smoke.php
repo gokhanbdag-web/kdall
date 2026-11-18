@@ -20,4 +20,8 @@ $purchaseView=file_get_contents(dirname(__DIR__).'/app/Views/purchasing/index.ph
 foreach(['ADD COLUMN warehouse_id','fk_purchase_order_warehouse'] as $needle){if($purchaseMigration===false||strpos($purchaseMigration,$needle)===false){fwrite(STDERR,"Purchase warehouse migration missing {$needle}.\n");exit(1);}}
 foreach(['warehouse_id','warehouse_name','warehouseAfter','totalStock'] as $needle){if($purchaseController===false||strpos($purchaseController,$needle)===false){fwrite(STDERR,"Purchase warehouse routing missing {$needle}.\n");exit(1);}}
 if($purchaseView===false||strpos($purchaseView,'name="warehouse_id"')===false||strpos($purchaseView,'warehouse_name')===false){fwrite(STDERR,"Purchase warehouse selection/detail UI missing.\n");exit(1);}
+$accounting=file_get_contents(dirname(__DIR__).'/app/Core/AccountingPostingService.php');
+$invoiceController=file_get_contents(dirname(__DIR__).'/app/Modules/Invoices/InvoiceController.php');
+$grni=file_get_contents(dirname(__DIR__).'/database/migrations/043_purchase_receipt_accounting.sql');
+if($accounting===false||strpos($accounting,'postPurchaseReceipt')===false||strpos($accounting,"'purchase_receipt'")===false||strpos($accounting,'receivedNotInvoiced')===false||strpos($accounting,'stockCost')===false||strpos($purchaseController,'AccountingPostingService::postPurchaseReceipt')===false||$invoiceController===false||strpos($accounting,"'159'")===false||$grni===false||strpos($grni,"'159'")===false){fwrite(STDERR,"Purchase receipt and invoice GRNI accounting integration missing.\n");exit(1);}
 echo "KodVadAll purchasing module smoke tests passed.\n";
