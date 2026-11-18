@@ -9,4 +9,6 @@ $posController=file_get_contents(dirname(__DIR__).'/app/Modules/POS/POSControlle
 $posJs=file_get_contents(dirname(__DIR__).'/assets/pos.js');
 $posView=file_get_contents(dirname(__DIR__).'/app/Views/pos/index.php');
 if($posController===false||strpos($posController,"\$_GET['warehouse_id']")===false||strpos($posController,"\$_POST['warehouse_id']")===false||strpos($posController,'warehouse_quantity')===false||$posJs===false||strpos($posJs,'warehouse_id')===false||strpos($posJs,'warehouse_quantity')===false||$posView===false||strpos($posView,'id="pos-warehouse"')===false){fwrite(STDERR,"POS warehouse stock handling missing.\\n");exit(1);}
+$accounting=file_get_contents(dirname(__DIR__).'/app/Core/AccountingPostingService.php');
+if($accounting===false||strpos($accounting,'postPosSale')===false||strpos($accounting,"'pos_sale'")===false||strpos($posController,'AccountingPostingService::postPosSale')===false||strpos($posController,'unit_cost')===false){fwrite(STDERR,"POS sales must snapshot cost and create an accounting journal.\n");exit(1);}
 echo "KodVadAll POS smoke tests passed.\n";

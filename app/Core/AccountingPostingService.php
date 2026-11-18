@@ -81,6 +81,21 @@ final class AccountingPostingService
   if($overhead>0)$lines[]=[self::account($db,'320'),0,$overhead,'Üretim genel gider tahakkuku'];
   self::journal($db,'production_order',$orderId,(string)$order['completed_at'],'Üretim maliyeti '.$order['order_number'],$userId,'TRY',$lines);
  }
+ public static function postPosSale(PDO $db,int $orderId,int $userId=0):void
+ {
+  $q=$db->prepare("SELECT * FROM orders WHERE id=? AND order_source='pos' AND status='confirmed' AND payment_status='paid' FOR UPDATE");$q->execute([$orderId]);$order=$q->fetch();
+  if(!$order)throw new RuntimeException('Muhasebeleştirilecek tamamlanmış POS satışı bulunamadı.');
+  $currency=strtoupper((string)$order['currency']);if(!preg_match('/^[A-Z]{3}$/',$currency))throw new RuntimeException('POS satışının para birimi geçersiz.');
+  $total=round((float)$order['grand_total'],2);$subtotal=round((float)$order['subtotal'],2);$tax=round((float)$order['tax_total'],2);
+  if($total<=0||abs($total-($subtotal+$tax-(float)($order['discount_total']??0)))>0.02)throw new RuntimeException('POS satış toplamları tutarsız.');
+  $cash=self::account($db,(string)$order['payment_method']==='cash'?'100':'102');$revenue=self::account($db,'600');
+  $lines=[[$cash,$total,0,'POS tahsilatı'],[$revenue,0,$subtotal,'POS satış geliri']];
+  if($tax>0)$lines[]=[self::account($db,'391'),0,$tax,'POS hesaplanan KDV'];
+  $costQuery=$db->prepare('SELECT COALESCE(SUM(oi.quantity*oi.unit_cost),0) FROM order_items oi JOIN products p ON p.id=oi.product_id WHERE oi.order_id=? AND p.track_stock=1');
+  $costQuery->execute([$orderId]);$cost=round((float)$costQuery->fetchColumn(),2);
+  if($cost>0){$lines[]=[self::account($db,'621'),$cost,0,'POS satılan ürünlerin maliyeti'];$lines[]=[self::account($db,'153'),0,$cost,'POS stok maliyet çıkışı'];}
+  self::journal($db,'pos_sale',$orderId,substr((string)$order['created_at'],0,10),'POS satışı '.$order['order_number'],$userId,$currency,$lines);
+ }
  public static function reverseInvoice(PDO $db,int $invoiceId,int $userId=0):void
  {
   $q=$db->prepare("SELECT j.id,j.journal_no,j.journal_date FROM accounting_journals j WHERE j.source_type='invoice' AND j.source_id=? LIMIT 1 FOR UPDATE");$q->execute([$invoiceId]);$original=$q->fetch();if(!$original)return;
