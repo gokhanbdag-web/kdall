@@ -3,12 +3,37 @@ declare(strict_types=1);
 namespace KodVadAll\Modules\Accounting;
 use PDO;
 use RuntimeException;
+use Throwable;
 
 final class AccountingController
 {
  public static function handle(PDO $db,array $admin):void
  {
   kd_require_permission('accounting.view');$errors=[];
+  if($_SERVER['REQUEST_METHOD']==='POST'){
+   kd_csrf_check();kd_require_permission('accounting.manage');
+   try{
+    $form=(string)($_POST['form_action']??'');
+    if($form==='account'){
+     $code=trim((string)($_POST['code']??''));$name=trim((string)($_POST['name']??''));$type=(string)($_POST['account_type']??'asset');
+     if($code===''||$name===''||!in_array($type,['asset','liability','equity','income','expense'],true))throw new RuntimeException('Hesap kodu, adı veya türü geçersiz.');
+     $db->prepare('INSERT INTO accounting_accounts(code,name,account_type,parent_id,is_active,created_at) VALUES(?,?,?,?,1,NOW())')->execute([$code,$name,$type,(int)($_POST['parent_id']??0)?:null]);
+     kd_audit('accounting.account_created','accounting_account',(int)$db->lastInsertId());self::go();
+    }
+    if($form==='journal'){
+     $date=(string)($_POST['journal_date']??date('Y-m-d'));$description=trim((string)($_POST['description']??''));$ids=is_array($_POST['account_id']??null)?$_POST['account_id']:[];$debits=is_array($_POST['debit']??null)?$_POST['debit']:[];$credits=is_array($_POST['credit']??null)?$_POST['credit']:[];
+     if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$date)||$description==='')throw new RuntimeException('Fiş tarihi ve açıklaması zorunludur.');
+     $lines=[];$totalDebit=0.0;$totalCredit=0.0;
+     foreach($ids as $i=>$accountId){$accountId=(int)$accountId;$debit=round((float)($debits[$i]??0),2);$credit=round((float)($credits[$i]??0),2);if($accountId<1||$debit<0||$credit<0||($debit>0&&$credit>0)||($debit==0&&$credit==0))continue;$lines[]=[$accountId,$debit,$credit];$totalDebit+=$debit;$totalCredit+=$credit;}
+     if(count($lines)<2||abs($totalDebit-$totalCredit)>0.009||$totalDebit<=0)throw new RuntimeException('En az iki satır girilmeli; borç ve alacak toplamları eşit olmalıdır.');
+     $db->beginTransaction();$number='MF-'.date('Ymd').'-'.bin2hex(random_bytes(3));
+     $db->prepare("INSERT INTO accounting_journals(journal_no,journal_date,description,created_by,created_at) VALUES(?,?,?,?,NOW())")->execute([$number,$date,$description,(int)$admin['id']]);$journalId=(int)$db->lastInsertId();
+     $check=$db->prepare('SELECT id FROM accounting_accounts WHERE id=? AND is_active=1');$insert=$db->prepare('INSERT INTO accounting_journal_lines(journal_id,account_id,debit,credit,created_at) VALUES(?,?,?,?,NOW())');
+     foreach($lines as [$accountId,$debit,$credit]){$check->execute([$accountId]);if(!$check->fetchColumn())throw new RuntimeException('Fişte pasif veya bulunmayan hesap seçildi.');$insert->execute([$journalId,$accountId,$debit,$credit]);}
+     $db->commit();kd_audit('accounting.journal_posted','accounting_journal',$journalId);self::go();
+    }
+   }catch(Throwable $e){if($db->inTransaction())$db->rollBack();error_log('KodVadAll accounting: '.$e->getMessage());$errors[]=$e instanceof RuntimeException?$e->getMessage():'Muhasebe işlemi tamamlanamadı.';}
+  }
   $today=date('Y-m-d');$from=(string)($_GET['from']??date('Y-01-01'));$to=(string)($_GET['to']??$today);
   foreach([$from,$to] as $date)if(!preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$date))throw new RuntimeException('Rapor tarih aralığı geçersiz.');
   if($from>$to)[$from,$to]=[$to,$from];
