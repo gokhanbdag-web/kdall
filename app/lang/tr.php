@@ -34,6 +34,7 @@ return [
     'nav.license' => 'Lisans & Güncellemeler',
     'nav.audit' => 'Denetim Kayıtları',
     'nav.pos' => 'Hızlı Satış / POS',
+    'nav.support' => 'Destek Talepleri',
     'nav.tasks' => 'Görevler',
     'nav.system' => 'SİSTEM',
     'nav.users' => 'Kullanıcılar & Yetkiler',

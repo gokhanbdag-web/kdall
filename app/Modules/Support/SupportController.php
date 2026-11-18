@@ -1,0 +1,23 @@
+<?php
+declare(strict_types=1);
+namespace KodVadAll\Modules\Support;
+use PDO;
+use RuntimeException;
+use Throwable;
+use KodVadAll\Core\NotificationService;
+final class SupportController
+{
+ public static function handle(PDO $db,array $admin):void
+ {
+  kd_require_permission('support.view');$errors=[];$success='';$id=(int)($_GET['id']??0);
+  if($_SERVER['REQUEST_METHOD']==='POST'){kd_csrf_check();$action=(string)($_POST['form_action']??'');try{
+   if($action==='create'){kd_require_permission('support.create');$subject=trim((string)($_POST['subject']??''));$description=trim((string)($_POST['description']??''));$customerId=(int)($_POST['customer_id']??0)?:null;$priority=in_array($_POST['priority']??'normal',['low','normal','high','urgent'],true)?$_POST['priority']:'normal';if($subject===''||$description==='')throw new RuntimeException('Konu ve açıklama zorunludur.');$db->beginTransaction();$temp='TMP-'.bin2hex(random_bytes(6));$db->prepare('INSERT INTO support_tickets (ticket_number,customer_id,subject,description,status,priority,assigned_user_id,created_by,created_at) VALUES (?,?,?,? ,\\'open\\',?,?,?,NOW())')->execute([$temp,$customerId,$subject,$description,$priority,(int)($_POST['assigned_user_id']??0)?:null,(int)$admin['id']]);$ticketId=(int)$db->lastInsertId();$number='TKT-'.date('Y').'-'.str_pad((string)$ticketId,6,'0',STR_PAD_LEFT);$db->prepare('UPDATE support_tickets SET ticket_number=? WHERE id=?')->execute([$number,$ticketId]);$db->prepare('INSERT INTO support_messages (ticket_id,user_id,message,is_internal,created_at) VALUES (?,?,?,0,NOW())')->execute([$ticketId,(int)$admin['id'],$description]);$db->commit();kd_audit('support.created','support_ticket',$ticketId);NotificationService::notifyRoles($db,['owner','admin','manager'],'Yeni destek talebi',$number.' · '.$subject,'index.php?page=support&id='.$ticketId,'info');$id=$ticketId;$success='Destek talebi oluşturuldu.';}
+   if($action==='message'){$ticketId=(int)($_POST['ticket_id']??0);$message=trim((string)($_POST['message']??''));if($message==='')throw new RuntimeException('Yanıt boş olamaz.');$db->prepare('INSERT INTO support_messages (ticket_id,user_id,message,is_internal,created_at) VALUES (?,?,?,?,NOW())')->execute([$ticketId,(int)$admin['id'],$message,isset($_POST['is_internal'])?1:0]);$db->prepare('UPDATE support_tickets SET updated_at=NOW() WHERE id=?')->execute([$ticketId]);$id=$ticketId;$success='Yanıt eklendi.';}
+   if($action==='update'){$ticketId=(int)($_POST['ticket_id']??0);$status=in_array($_POST['status']??'', ['open','in_progress','waiting','closed'],true)?$_POST['status']:'open';$priority=in_array($_POST['priority']??'', ['low','normal','high','urgent'],true)?$_POST['priority']:'normal';$assignee=(int)($_POST['assigned_user_id']??0)?:null;$db->prepare('UPDATE support_tickets SET status=?,priority=?,assigned_user_id=?,closed_at=IF(?=\\'closed\\',NOW(),NULL),updated_at=NOW() WHERE id=?')->execute([$status,$priority,$assignee,$status,$ticketId]);kd_audit('support.updated','support_ticket',$ticketId);$id=$ticketId;$success='Talep bilgileri güncellendi.';}
+  }catch(Throwable $e){if($db->inTransaction())$db->rollBack();$errors[]=$e instanceof RuntimeException?$e->getMessage():'Destek işlemi tamamlanamadı.';}}
+  $users=$db->query("SELECT id,name FROM users WHERE status='active' ORDER BY name")->fetchAll();$customers=$db->query("SELECT id,name FROM customers WHERE status='active' ORDER BY name LIMIT 500")->fetchAll();
+  if($id>0){$q=$db->prepare('SELECT t.*,c.name customer_name,u.name assignee_name FROM support_tickets t LEFT JOIN customers c ON c.id=t.customer_id LEFT JOIN users u ON u.id=t.assigned_user_id WHERE t.id=?');$q->execute([$id]);$ticket=$q->fetch();if(!$ticket)throw new RuntimeException('Destek talebi bulunamadı.');$q=$db->prepare('SELECT m.*,u.name user_name FROM support_messages m LEFT JOIN users u ON u.id=m.user_id WHERE m.ticket_id=? ORDER BY m.id');$q->execute([$id]);$messages=$q->fetchAll();}
+  else{$status=trim((string)($_GET['status']??''));$where='';$params=[];if(in_array($status,['open','in_progress','waiting','closed'],true)){$where=' WHERE t.status=?';$params[]=$status;}$q=$db->prepare('SELECT t.*,c.name customer_name,u.name assignee_name FROM support_tickets t LEFT JOIN customers c ON c.id=t.customer_id LEFT JOIN users u ON u.id=t.assigned_user_id'.$where.' ORDER BY FIELD(t.priority,\\'urgent\\',\\'high\\',\\'normal\\',\\'low\\'),t.id DESC LIMIT 150');$q->execute($params);$tickets=$q->fetchAll();}
+  $pageTitle='Destek Talepleri';ob_start();require KD_ROOT.'/app/Views/support/index.php';$content=ob_get_clean();require KD_ROOT.'/app/Views/layouts/admin.php';
+ }
+}

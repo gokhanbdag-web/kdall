@@ -199,6 +199,11 @@ if ($page === 'pos') {
     exit;
 }
 
+if ($page === 'support') {
+    \KodVadAll\Modules\Support\SupportController::handle($pdo, $admin);
+    exit;
+}
+
 if ($page === 'settings') {
     KodVadAll\Modules\Settings\SettingsController::handle($pdo);
     exit;

@@ -106,5 +106,7 @@ jobs:
         run: php tests/pos_module_smoke.php
       - name: Lint POS API endpoint
         run: php -l pos_api.php
+      - name: Run support module smoke tests
+        run: php tests/support_module_smoke.php
       - name: Check JavaScript syntax
         run: node --check assets/admin.js && node --check assets/orders.js
