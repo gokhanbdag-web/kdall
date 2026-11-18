@@ -96,6 +96,29 @@ final class AccountingPostingService
   if($cost>0){$lines[]=[self::account($db,'621'),$cost,0,'POS satılan ürünlerin maliyeti'];$lines[]=[self::account($db,'153'),0,$cost,'POS stok maliyet çıkışı'];}
   self::journal($db,'pos_sale',$orderId,substr((string)$order['created_at'],0,10),'POS satışı '.$order['order_number'],$userId,$currency,$lines);
  }
+ public static function postSalesReturnRestock(PDO $db,int $returnId,int $userId=0):void
+ {
+  $q=$db->prepare("SELECT r.*,o.currency FROM sales_returns r JOIN orders o ON o.id=r.order_id WHERE r.id=? AND r.status='received' FOR UPDATE");$q->execute([$returnId]);$r=$q->fetch();
+  if(!$r)throw new RuntimeException('Muhasebeleştirilecek teslim alınmış iade bulunamadı.');
+  $q=$db->prepare('SELECT COALESCE(SUM(ri.restock_quantity*oi.unit_cost),0) FROM sales_return_items ri JOIN order_items oi ON oi.id=ri.order_item_id JOIN products p ON p.id=ri.product_id WHERE ri.return_id=? AND p.track_stock=1');$q->execute([$returnId]);$cost=round((float)$q->fetchColumn(),2);if($cost<=0)return;
+  $inventory=self::account($db,'153');$cogs=self::account($db,'621');
+  self::journal($db,'sales_return_stock',$returnId,substr((string)$r['received_at'],0,10),'İade stok girişi '.$r['return_number'],$userId,(string)$r['currency'],[[$inventory,$cost,0,'İade alınan ürün stok maliyeti'],[$cogs,0,$cost,'Satılan mal maliyetinin iadesi']]);
+ }
+ public static function postSalesReturnRefund(PDO $db,int $transactionId,int $returnId,int $userId=0):void
+ {
+  $q=$db->prepare('SELECT t.*,fa.account_type FROM financial_transactions t JOIN financial_accounts fa ON fa.id=t.account_id WHERE t.id=? FOR UPDATE');$q->execute([$transactionId]);$t=$q->fetch();
+  if(!$t||$t['transaction_type']!=='expense'||$t['category']!=='Müşteri iadesi')throw new RuntimeException('İade ödeme hareketi bulunamadı veya geçersiz.');
+  $q=$db->prepare('SELECT r.*,o.currency FROM sales_returns r JOIN orders o ON o.id=r.order_id WHERE r.id=? FOR UPDATE');$q->execute([$returnId]);$r=$q->fetch();
+  if(!$r||$t['reference_no']!==$r['return_number']||$t['currency']!==$r['currency'])throw new RuntimeException('İade ödeme hareketi ile iade kaydı eşleşmiyor.');
+  $amount=round((float)$t['amount'],2);$refundTotal=round((float)$r['refund_total'],2);$paidBefore=round((float)$r['refunded_total'],2);
+  if($amount<=0||$refundTotal<=0||$amount>$refundTotal-$paidBefore+0.01)throw new RuntimeException('İade ödeme tutarı kalan iade tutarını aşıyor.');
+  $q=$db->prepare('SELECT ri.quantity,ri.refund_amount,oi.quantity original_quantity,oi.line_subtotal,oi.line_tax FROM sales_return_items ri JOIN order_items oi ON oi.id=ri.order_item_id WHERE ri.return_id=?');$q->execute([$returnId]);$netTotal=0.0;$taxTotal=0.0;
+  foreach($q->fetchAll() as $item){$originalQty=(float)$item['original_quantity'];if($originalQty<=0)throw new RuntimeException('İade kaleminin sipariş miktarı geçersiz.');$netTotal+=round((float)$item['line_subtotal']/(float)$originalQty*(float)$item['quantity'],2);$taxTotal+=(float)$item['refund_amount']-round((float)$item['line_subtotal']/(float)$originalQty*(float)$item['quantity'],2);}
+  $netTotal=round($netTotal,2);$taxTotal=round($taxTotal,2);
+  $isFinal=$paidBefore+$amount>=$refundTotal-0.01;$netPart=$isFinal?round($netTotal-round($paidBefore*$netTotal/$refundTotal,2),2):round($amount*$netTotal/$refundTotal,2);$taxPart=round($amount-$netPart,2);
+  $cash=self::account($db,$t['account_type']==='bank'?'102':'100');$lines=[];if($netPart>0)$lines[]=[self::account($db,'610'),$netPart,0,'Satış iadesi'];if($taxPart>0)$lines[]=[self::account($db,'391'),$taxPart,0,'İade edilen satış KDV'];$lines[]=[$cash,0,$amount,'Müşteriye iade ödemesi'];
+  self::journal($db,'sales_return_refund',$transactionId,(string)$t['transaction_date'],'Müşteri iadesi '.$r['return_number'],$userId,(string)$t['currency'],$lines);
+ }
  public static function reverseInvoice(PDO $db,int $invoiceId,int $userId=0):void
  {
   $q=$db->prepare("SELECT j.id,j.journal_no,j.journal_date FROM accounting_journals j WHERE j.source_type='invoice' AND j.source_id=? LIMIT 1 FOR UPDATE");$q->execute([$invoiceId]);$original=$q->fetch();if(!$original)return;
