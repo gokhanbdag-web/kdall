@@ -99,6 +99,11 @@ if ($page === 'finance') {
     exit;
 }
 
+if ($page === 'accounting') {
+    KodVadAll\Modules\Accounting\AccountingController::handle($pdo, $admin);
+    exit;
+}
+
 if ($page === 'invoices') {
     KodVadAll\Modules\Invoices\InvoiceController::handle($pdo, $admin);
     exit;
