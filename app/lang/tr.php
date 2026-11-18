@@ -13,6 +13,7 @@ return [
     'nav.suppliers' => 'Tedarikçiler',
     'nav.purchases' => 'Satın Alma',
     'nav.finance' => 'Finans & Ön Muhasebe',
+    'nav.accounting' => 'Genel Muhasebe',
     'nav.invoices' => 'Faturalandırma',
     'nav.marketplaces' => 'Pazaryeri Entegrasyonları',
     'nav.shipping' => 'Kargo & Lojistik',
