@@ -87,6 +87,12 @@ try {
         throw new RuntimeException('Existing sales orders were not backfilled to the default warehouse.');
     }
 
+    $purchaseCurrency = $pdo->prepare('SELECT currency FROM purchase_orders WHERE purchase_number=?');
+    $purchaseCurrency->execute(['MIGRATION-TEST-PO']);
+    if ($purchaseCurrency->fetchColumn() !== 'TRY') {
+        throw new RuntimeException('Purchase currency default required by reports is missing.');
+    }
+
     $legacyPurchase = $pdo->prepare('SELECT w.is_default FROM purchase_orders p LEFT JOIN warehouses w ON w.id=p.warehouse_id WHERE p.purchase_number=?');
     $legacyPurchase->execute(['MIGRATION-TEST-PO']);
     if ((int)$legacyPurchase->fetchColumn() !== 1) {
