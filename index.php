@@ -74,6 +74,11 @@ if ($page === 'products') {
     exit;
 }
 
+if ($page === 'warehouses') {
+    KodVadAll\Modules\Warehouses\WarehousesController::handle($pdo, $admin);
+    exit;
+}
+
 if ($page === 'orders') {
     KodVadAll\Modules\Orders\OrderController::handle($pdo, $admin);
     exit;
