@@ -43,6 +43,7 @@ return [
             ['label' => 'nav.production', 'page' => 'production', 'permission' => 'production.view', 'icon' => 'factory'],
             ['label' => 'nav.service', 'page' => 'service', 'permission' => 'service.view', 'icon' => 'wrench'],
             ['label' => 'nav.calendar', 'page' => 'calendar', 'permission' => 'calendar.view', 'icon' => 'calendar-days'],
+            ['label' => 'nav.quality', 'page' => 'quality', 'permission' => 'quality.view', 'icon' => 'clipboard-check'],
             ['label' => 'nav.tasks', 'page' => 'tasks', 'permission' => 'tasks.view', 'icon' => 'list-checks']
         ]
     ],

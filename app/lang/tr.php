@@ -39,6 +39,7 @@ return [
     'nav.production' => 'Üretim Yönetimi',
     'nav.service' => 'Teknik Servis',
     'nav.calendar' => 'Takvim & Randevular',
+    'nav.quality' => 'Kalite Kontrol',
     'nav.tasks' => 'Görevler',
     'nav.system' => 'SİSTEM',
     'nav.users' => 'Kullanıcılar & Yetkiler',

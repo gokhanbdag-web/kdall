@@ -116,5 +116,7 @@ jobs:
         run: php tests/service_module_smoke.php
       - name: Run calendar module smoke tests
         run: php tests/calendar_module_smoke.php
+      - name: Run quality module smoke tests
+        run: php tests/quality_module_smoke.php
       - name: Check JavaScript syntax
         run: node --check assets/admin.js && node --check assets/orders.js
