@@ -112,5 +112,7 @@ jobs:
         run: php tests/assets_module_smoke.php
       - name: Run production module smoke tests
         run: php tests/production_module_smoke.php
+      - name: Run technical service smoke tests
+        run: php tests/service_module_smoke.php
       - name: Check JavaScript syntax
         run: node --check assets/admin.js && node --check assets/orders.js

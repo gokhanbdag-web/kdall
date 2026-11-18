@@ -37,6 +37,7 @@ return [
     'nav.support' => 'Destek Talepleri',
     'nav.assets' => 'Demirbaş Yönetimi',
     'nav.production' => 'Üretim Yönetimi',
+    'nav.service' => 'Teknik Servis',
     'nav.tasks' => 'Görevler',
     'nav.system' => 'SİSTEM',
     'nav.users' => 'Kullanıcılar & Yetkiler',

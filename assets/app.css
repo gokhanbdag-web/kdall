@@ -521,3 +521,8 @@ input[type=date],input[type=datetime-local],input[type=time],input[type=month]{-
 .production-components{display:grid;grid-template-columns:1fr 110px;gap:8px;margin:10px 0}
 .production-components label{font-size:11px}
 @media(max-width:600px){.production-components{grid-template-columns:1fr 90px}}
+
+/* Technical service jobs */
+.service-edit{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0}
+.service-edit label{font-size:11px}
+@media(max-width:600px){.service-edit{grid-template-columns:1fr}}

@@ -214,6 +214,11 @@ if ($page === 'production') {
     exit;
 }
 
+if ($page === 'service') {
+    \KodVadAll\Modules\Service\ServiceController::handle($pdo, $admin);
+    exit;
+}
+
 if ($page === 'settings') {
     KodVadAll\Modules\Settings\SettingsController::handle($pdo);
     exit;
