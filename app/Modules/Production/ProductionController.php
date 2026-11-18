@@ -81,14 +81,16 @@ final class ProductionController
                         throw new RuntimeException('Tamamlanabilir üretim emri bulunamadı.');
                     }
 
-                    $q = $db->prepare('SELECT ri.*,p.name,p.stock_quantity,p.track_stock,p.purchase_price FROM production_recipe_items ri JOIN products p ON p.id=ri.component_product_id WHERE ri.recipe_id=? ORDER BY p.id FOR UPDATE');
-                    $q->execute([(int)$order['recipe_id']]);
+                    $defaultWarehouseId=(int)$db->query("SELECT id FROM warehouses WHERE is_default=1 AND status='active' LIMIT 1")->fetchColumn();
+                    if($defaultWarehouseId<1)throw new RuntimeException('Varsayılan depo bulunamadı.');
+                    $q = $db->prepare('SELECT ri.*,p.name,p.stock_quantity,p.track_stock,p.purchase_price,COALESCE(pws.quantity,0) AS warehouse_quantity FROM production_recipe_items ri JOIN products p ON p.id=ri.component_product_id LEFT JOIN product_warehouse_stocks pws ON pws.product_id=p.id AND pws.warehouse_id=? WHERE ri.recipe_id=? ORDER BY p.id FOR UPDATE');
+                    $q->execute([$defaultWarehouseId,(int)$order['recipe_id']]);
                     $components = $q->fetchAll();
                     $materials = [];
                     $materialCost = 0.0;
                     foreach ($components as $component) {
                         $required = round((float)$component['quantity_per_batch'] * (float)$order['output_quantity'] / (float)$order['batch_size'], 3);
-                        if ((int)$component['track_stock'] && (float)$component['stock_quantity'] < $required) {
+                        if ((int)$component['track_stock'] && (float)$component['warehouse_quantity'] < $required) {
                             throw new RuntimeException('Yetersiz hammadde: ' . $component['name']);
                         }
                         $unitCost = round((float)$component['purchase_price'], 4);
@@ -112,26 +114,29 @@ final class ProductionController
 
                     foreach ($materials as [$component, $required, $componentUnitCost, $lineCost]) {
                         if ((int)$component['track_stock']) {
-                            $before = (float)$component['stock_quantity'];
-                            $after = round($before - $required, 3);
-                            $db->prepare('UPDATE products SET stock_quantity=?,updated_at=NOW() WHERE id=?')->execute([$after, (int)$component['component_product_id']]);
-                            $db->prepare("INSERT INTO product_stock_movements (product_id,user_id,movement_type,quantity,before_quantity,after_quantity,note,reference_type,reference_id,created_at) VALUES (?,?,'out',?,?,?,?, 'production',?,NOW())")
-                                ->execute([(int)$component['component_product_id'], (int)$admin['id'], $required, $before, $after, 'Üretim ' . $order['order_number'], $orderId]);
+                            $productId=(int)$component['component_product_id'];
+                            $before=(float)$component['warehouse_quantity'];$after=round($before-$required,3);
+                            $db->prepare('UPDATE product_warehouse_stocks SET quantity=?,updated_at=NOW() WHERE product_id=? AND warehouse_id=?')->execute([$after,$productId,$defaultWarehouseId]);
+                            $total=(float)$db->query('SELECT COALESCE(SUM(quantity),0) FROM product_warehouse_stocks WHERE product_id='.$productId)->fetchColumn();
+                            $db->prepare('UPDATE products SET stock_quantity=?,updated_at=NOW() WHERE id=?')->execute([$total,$productId]);
+                            $db->prepare("INSERT INTO product_stock_movements(product_id,warehouse_id,user_id,movement_type,quantity,before_quantity,after_quantity,note,reference_type,reference_id,created_at) VALUES(?,?,?,'out',?,?,?,?,?,?,NOW())")
+                                ->execute([$productId,$defaultWarehouseId,(int)$admin['id'],$required,$before,$after,'Üretim '.$order['order_number'],'production',$orderId]);
                         }
                         $db->prepare('INSERT INTO production_order_materials (production_order_id,product_id,product_name,quantity_required,quantity_consumed,unit_cost,line_cost,created_at) VALUES (?,?,?,?,?,?,?,NOW())')
                             ->execute([$orderId, (int)$component['component_product_id'], $component['name'], $required, $required, $componentUnitCost, $lineCost]);
                     }
 
-                    $oldQty = (float)$output['stock_quantity'];
-                    $oldUnitCost = (float)$output['purchase_price'];
-                    $newQty = $oldQty + $outputQty;
-                    $weightedCost = $newQty > 0 ? (($oldQty * $oldUnitCost) + ($outputQty * $unitCost)) / $newQty : $unitCost;
-                    $db->prepare('UPDATE products SET stock_quantity=IF(track_stock=1,?,stock_quantity),purchase_price=?,updated_at=NOW() WHERE id=?')
-                        ->execute([round($newQty, 3), round($weightedCost, 4), (int)$output['id']]);
-                    if ((int)$output['track_stock']) {
-                        $db->prepare("INSERT INTO product_stock_movements (product_id,user_id,movement_type,quantity,before_quantity,after_quantity,note,reference_type,reference_id,created_at) VALUES (?,?,'in',?,?,?,?, 'production',?,NOW())")
-                            ->execute([(int)$output['id'], (int)$admin['id'], $outputQty, $oldQty, round($newQty, 3), 'Üretim ' . $order['order_number'], $orderId]);
-                    }
+                    $oldQty=(float)$output['stock_quantity'];$oldUnitCost=(float)$output['purchase_price'];$newQty=$oldQty+$outputQty;
+                    $weightedCost=$newQty>0?(($oldQty*$oldUnitCost)+($outputQty*$unitCost))/$newQty:$unitCost;
+                    if((int)$output['track_stock']){
+                        $q=$db->prepare('SELECT quantity FROM product_warehouse_stocks WHERE product_id=? AND warehouse_id=? FOR UPDATE');$q->execute([(int)$output['id'],$defaultWarehouseId]);$outputStock=$q->fetch();$warehouseBefore=$outputStock?(float)$outputStock['quantity']:0.0;$warehouseAfter=round($warehouseBefore+$outputQty,3);
+                        if(!$outputStock)$db->prepare('INSERT INTO product_warehouse_stocks(product_id,warehouse_id,quantity,updated_at) VALUES(?,?,?,NOW())')->execute([(int)$output['id'],$defaultWarehouseId,$warehouseAfter]);
+                        else $db->prepare('UPDATE product_warehouse_stocks SET quantity=?,updated_at=NOW() WHERE product_id=? AND warehouse_id=?')->execute([$warehouseAfter,(int)$output['id'],$defaultWarehouseId]);
+                        $total=(float)$db->query('SELECT COALESCE(SUM(quantity),0) FROM product_warehouse_stocks WHERE product_id='.(int)$output['id'])->fetchColumn();
+                        $db->prepare('UPDATE products SET stock_quantity=?,purchase_price=?,updated_at=NOW() WHERE id=?')->execute([$total,round($weightedCost,4),(int)$output['id']]);
+                        $db->prepare("INSERT INTO product_stock_movements(product_id,warehouse_id,user_id,movement_type,quantity,before_quantity,after_quantity,note,reference_type,reference_id,created_at) VALUES(?,?,?,'in',?,?,?,?,?,?,NOW())")
+                            ->execute([(int)$output['id'],$defaultWarehouseId,(int)$admin['id'],$outputQty,$warehouseBefore,$warehouseAfter,'Üretim '.$order['order_number'],'production',$orderId]);
+                    }else{$db->prepare('UPDATE products SET purchase_price=?,updated_at=NOW() WHERE id=?')->execute([round($weightedCost,4),(int)$output['id']]);}
 
                     $db->prepare("UPDATE production_orders SET status='completed',started_at=COALESCE(started_at,NOW()),completed_at=NOW(),material_cost=?,total_cost=?,unit_cost=? WHERE id=?")
                         ->execute([$materialCost, $totalCost, $unitCost, $orderId]);

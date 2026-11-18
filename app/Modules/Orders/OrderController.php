@@ -194,34 +194,40 @@ final class OrderController
 
     private static function deductStock(PDO $pdo,int $orderId,string $number): void
     {
-        $items=$pdo->prepare('SELECT product_id,quantity,product_name FROM order_items WHERE order_id=?');
-        $items->execute([$orderId]);
-        foreach($items->fetchAll() as $item) {
-            if(!$item['product_id']) continue;
-            $lock=$pdo->prepare('SELECT stock_quantity,track_stock FROM products WHERE id=? FOR UPDATE');
-            $lock->execute([(int)$item['product_id']]);$product=$lock->fetch();
-            if(!$product || !(int)$product['track_stock']) continue;
-            $before=(float)$product['stock_quantity'];$qty=(float)$item['quantity'];$after=$before-$qty;
-            if($after<0) throw new RuntimeException('Yetersiz stok: '.$item['product_name']);
-            $pdo->prepare('UPDATE products SET stock_quantity=?,updated_at=NOW() WHERE id=?')->execute([$after,(int)$item['product_id']]);
-            $move=$pdo->prepare("INSERT INTO product_stock_movements (product_id,user_id,movement_type,quantity,before_quantity,after_quantity,note,reference_type,reference_id,created_at) VALUES (?,?,'out',?,?,?,?,?,?,NOW())");
-            $move->execute([(int)$item['product_id'],(int)($_SESSION['user']['id']??0),$qty,$before,$after,'Sipariş '.$number,'order',$orderId]);
+        $warehouseId=(int)$pdo->query("SELECT id FROM warehouses WHERE is_default=1 AND status='active' LIMIT 1")->fetchColumn();
+        if($warehouseId<1)throw new RuntimeException('Varsayılan depo bulunamadı.');
+        $items=$pdo->prepare('SELECT product_id,quantity,product_name FROM order_items WHERE order_id=?');$items->execute([$orderId]);
+        foreach($items->fetchAll() as $item){
+            if(!$item['product_id'])continue;$pid=(int)$item['product_id'];
+            $lock=$pdo->prepare('SELECT stock_quantity,track_stock FROM products WHERE id=? FOR UPDATE');$lock->execute([$pid]);$product=$lock->fetch();
+            if(!$product||!(int)$product['track_stock'])continue;
+            $q=$pdo->prepare('SELECT quantity FROM product_warehouse_stocks WHERE product_id=? AND warehouse_id=? FOR UPDATE');$q->execute([$pid,$warehouseId]);$stock=$q->fetch();$before=$stock?(float)$stock['quantity']:0.0;$qty=(float)$item['quantity'];$after=$before-$qty;
+            if($after<0)throw new RuntimeException('Varsayılan depoda yetersiz stok: '.$item['product_name']);
+            if(!$stock)$pdo->prepare('INSERT INTO product_warehouse_stocks(product_id,warehouse_id,quantity,updated_at) VALUES(?,?,0,NOW())')->execute([$pid,$warehouseId]);
+            $pdo->prepare('UPDATE product_warehouse_stocks SET quantity=?,updated_at=NOW() WHERE product_id=? AND warehouse_id=?')->execute([$after,$pid,$warehouseId]);
+            $total=(float)$pdo->query('SELECT COALESCE(SUM(quantity),0) FROM product_warehouse_stocks WHERE product_id='.$pid)->fetchColumn();
+            $pdo->prepare('UPDATE products SET stock_quantity=?,updated_at=NOW() WHERE id=?')->execute([$total,$pid]);
+            $move=$pdo->prepare("INSERT INTO product_stock_movements(product_id,warehouse_id,user_id,movement_type,quantity,before_quantity,after_quantity,note,reference_type,reference_id,created_at) VALUES(?,?,?,'out',?,?,?,?,?,?,NOW())");
+            $move->execute([$pid,$warehouseId,(int)($_SESSION['user']['id']??0),$qty,$before,$after,'Sipariş '.$number,'order',$orderId]);
         }
     }
 
     private static function restoreStock(PDO $pdo,int $orderId,string $number): void
     {
-        $items=$pdo->prepare('SELECT product_id,quantity,product_name FROM order_items WHERE order_id=?');
-        $items->execute([$orderId]);
-        foreach($items->fetchAll() as $item) {
-            if(!$item['product_id']) continue;
-            $lock=$pdo->prepare('SELECT stock_quantity,track_stock FROM products WHERE id=? FOR UPDATE');
-            $lock->execute([(int)$item['product_id']]);$product=$lock->fetch();
-            if(!$product) continue;
-            $before=(float)$product['stock_quantity'];$qty=(float)$item['quantity'];$after=$before+$qty;
-            $pdo->prepare('UPDATE products SET stock_quantity=?,updated_at=NOW() WHERE id=?')->execute([$after,(int)$item['product_id']]);
-            $move=$pdo->prepare("INSERT INTO product_stock_movements (product_id,user_id,movement_type,quantity,before_quantity,after_quantity,note,reference_type,reference_id,created_at) VALUES (?,?,'in',?,?,?,?,?,?,NOW())");
-            $move->execute([(int)$item['product_id'],(int)($_SESSION['user']['id']??0),$qty,$before,$after,'İptal edilen sipariş '.$number,'order',$orderId]);
+        $warehouseId=(int)$pdo->query("SELECT id FROM warehouses WHERE is_default=1 AND status='active' LIMIT 1")->fetchColumn();
+        if($warehouseId<1)throw new RuntimeException('Varsayılan depo bulunamadı.');
+        $items=$pdo->prepare('SELECT product_id,quantity,product_name FROM order_items WHERE order_id=?');$items->execute([$orderId]);
+        foreach($items->fetchAll() as $item){
+            if(!$item['product_id'])continue;$pid=(int)$item['product_id'];
+            $lock=$pdo->prepare('SELECT stock_quantity,track_stock FROM products WHERE id=? FOR UPDATE');$lock->execute([$pid]);$product=$lock->fetch();
+            if(!$product||!(int)$product['track_stock'])continue;
+            $q=$pdo->prepare('SELECT quantity FROM product_warehouse_stocks WHERE product_id=? AND warehouse_id=? FOR UPDATE');$q->execute([$pid,$warehouseId]);$stock=$q->fetch();$before=$stock?(float)$stock['quantity']:0.0;$qty=(float)$item['quantity'];$after=$before+$qty;
+            if(!$stock)$pdo->prepare('INSERT INTO product_warehouse_stocks(product_id,warehouse_id,quantity,updated_at) VALUES(?,?,0,NOW())')->execute([$pid,$warehouseId]);
+            $pdo->prepare('UPDATE product_warehouse_stocks SET quantity=?,updated_at=NOW() WHERE product_id=? AND warehouse_id=?')->execute([$after,$pid,$warehouseId]);
+            $total=(float)$pdo->query('SELECT COALESCE(SUM(quantity),0) FROM product_warehouse_stocks WHERE product_id='.$pid)->fetchColumn();
+            $pdo->prepare('UPDATE products SET stock_quantity=?,updated_at=NOW() WHERE id=?')->execute([$total,$pid]);
+            $move=$pdo->prepare("INSERT INTO product_stock_movements(product_id,warehouse_id,user_id,movement_type,quantity,before_quantity,after_quantity,note,reference_type,reference_id,created_at) VALUES(?,?,?,'in',?,?,?,?,?,?,NOW())");
+            $move->execute([$pid,$warehouseId,(int)($_SESSION['user']['id']??0),$qty,$before,$after,'İptal edilen sipariş '.$number,'order',$orderId]);
         }
     }
 
