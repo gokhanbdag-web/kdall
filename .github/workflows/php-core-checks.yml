@@ -88,7 +88,8 @@ jobs:
         run: php -l download.php
       - name: Run system management smoke tests
         run: php tests/system_module_smoke.php
-      - name: Lint backup download endpoint
+      - name: Verify generated storage files are ignored
+        run: git check-ignore -q --no-index storage/payment.key storage/install.id storage/license.json storage/backups/fixture.sql storage/uploads/fixture.bin .env\n      - name: Lint backup download endpoint
         run: php -l backup_download.php
       - name: Run security module smoke tests
         run: php tests/security_module_smoke.php
