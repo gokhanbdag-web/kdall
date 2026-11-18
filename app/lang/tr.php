@@ -30,6 +30,7 @@ return [
     'nav.files' => 'Dosya & Belge Yönetimi',
     'nav.system' => 'Sistem Yönetimi',
     'nav.security' => 'Güvenlik Merkezi',
+    'nav.data' => 'Veri Aktarımı',
     'nav.tasks' => 'Görevler',
     'nav.system' => 'SİSTEM',
     'nav.users' => 'Kullanıcılar & Yetkiler',

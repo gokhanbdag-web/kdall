@@ -179,6 +179,11 @@ if ($page === 'security') {
     exit;
 }
 
+if ($page === 'data') {
+    \KodVadAll\Modules\Data\DataController::handle($pdo, $admin);
+    exit;
+}
+
 if ($page === 'settings') {
     KodVadAll\Modules\Settings\SettingsController::handle($pdo);
     exit;

@@ -34,6 +34,7 @@ return [
             ['label' => 'nav.files', 'page' => 'files', 'permission' => 'files.view', 'icon' => 'folder-lock'],
             ['label' => 'nav.system', 'page' => 'system', 'permission' => 'system.view', 'icon' => 'server-cog'],
             ['label' => 'nav.security', 'page' => 'security', 'permission' => 'security.view', 'icon' => 'shield-check'],
+            ['label' => 'nav.data', 'page' => 'data', 'permission' => 'data.view', 'icon' => 'file-spreadsheet'],
             ['label' => 'nav.tasks', 'page' => 'tasks', 'permission' => 'tasks.view', 'icon' => 'list-checks']
         ]
     ],
