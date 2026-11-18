@@ -51,4 +51,11 @@ return [
     'customers.inactive' => 'Pasif',
     'customers.communication' => 'İletişim geçmişi',
     'customers.add_activity' => 'Kaydı ekle',
+    'products.title' => 'Ürün & Stok',
+    'products.new' => 'Yeni ürün',
+    'products.catalog' => 'Ürün kataloğunuzu ve stok seviyelerinizi yönetin.',
+    'products.stock_in' => 'Stok girişi',
+    'products.stock_out' => 'Stok çıkışı',
+    'products.stock_adjustment' => 'Stok düzeltmesi',
+    'products.low_stock' => 'Kritik stok',
 ];
