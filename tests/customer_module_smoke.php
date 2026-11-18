@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/app/bootstrap.php';
 
-if (!class_exists(KodVadAll\\Modules\\Customers\\CustomerController::class)) {
+if (!class_exists(KodVadAll\Modules\Customers\CustomerController::class)) {
     fwrite(STDERR, "Customer controller autoload failed.\n");
     exit(1);
 }
