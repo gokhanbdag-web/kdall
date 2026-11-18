@@ -30,3 +30,5 @@ jobs:
         run: php tests/smoke.php
       - name: Run admin shell smoke tests
         run: php tests/admin_shell_smoke.php
+      - name: Run CRM customer smoke tests
+        run: php tests/customer_module_smoke.php
