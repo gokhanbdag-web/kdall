@@ -96,6 +96,11 @@ if ($page === 'quotes' || $page === 'contracts') {
     exit;
 }
 
+if ($page === 'employees') {
+    KodVadAll\Modules\HR\HRController::handle($pdo, $admin);
+    exit;
+}
+
 if ($page === 'settings') {
     KodVadAll\Modules\Settings\SettingsController::handle($pdo);
     exit;

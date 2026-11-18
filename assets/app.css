@@ -398,3 +398,7 @@ input[type=date],input[type=datetime-local],input[type=time],input[type=month]{-
 
 /* Sales quote and contract documents */
 .document-terms{white-space:pre-wrap;line-height:1.7;color:var(--ink);font-size:13px}
+
+/* Human resources */
+.hr-section{margin-top:16px}
+.hr-section h3{margin-bottom:14px}

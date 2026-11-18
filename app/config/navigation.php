@@ -23,6 +23,7 @@ return [
             ['label' => 'nav.returns', 'page' => 'returns', 'permission' => 'returns.view', 'icon' => 'rotate-ccw'],
             ['label' => 'nav.quotes', 'page' => 'quotes', 'permission' => 'quotes.view', 'icon' => 'file-check'],
             ['label' => 'nav.contracts', 'page' => 'contracts', 'permission' => 'contracts.view', 'icon' => 'file-signature'],
+            ['label' => 'nav.hr', 'page' => 'employees', 'permission' => 'employees.view', 'icon' => 'user-round-cog'],
             ['label' => 'nav.tasks', 'page' => 'tasks', 'permission' => 'tasks.view', 'icon' => 'list-checks']
         ]
     ],

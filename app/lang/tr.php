@@ -19,6 +19,7 @@ return [
     'nav.returns' => 'İade & Değişim',
     'nav.quotes' => 'Teklifler',
     'nav.contracts' => 'Sözleşmeler',
+    'nav.hr' => 'Personel & İK',
     'nav.tasks' => 'Görevler',
     'nav.system' => 'SİSTEM',
     'nav.users' => 'Kullanıcılar & Yetkiler',
