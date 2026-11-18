@@ -7,6 +7,7 @@ $finance=file_get_contents($root.'/app/Modules/Finance/FinanceController.php');
 $invoices=file_get_contents($root.'/app/Modules/Invoices/InvoiceController.php');
 $accounting=file_get_contents($root.'/app/Modules/Accounting/AccountingController.php');
 $migration=file_get_contents($root.'/database/migrations/034_accounting_automation.sql');
+$backfill=file_get_contents($root.'/database/migrations/035_accounting_backfill.sql');
 foreach(['postFinancialTransaction','postFinancialAccountOpening','postInvoice','reverseInvoice','finance_transfer','invoice_reversal'] as $needle){if($service===false||strpos($service,$needle)===false){fwrite(STDERR,"Accounting posting service missing {$needle}.\n");exit(1);}}
 foreach(['AccountingPostingService::postFinancialAccountOpening','AccountingPostingService::postFinancialTransaction'] as $needle){if($finance===false||strpos($finance,$needle)===false){fwrite(STDERR,"Finance integration missing {$needle}.\n");exit(1);}}
 foreach(['AccountingPostingService::postInvoice','AccountingPostingService::reverseInvoice','AccountingPostingService::postFinancialTransaction'] as $needle){if($invoices===false||strpos($invoices,$needle)===false){fwrite(STDERR,"Invoice integration missing {$needle}.\n");exit(1);}}
