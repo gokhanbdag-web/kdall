@@ -29,7 +29,7 @@ final class WarehousesController
                     $pdo->beginTransaction();$q=$pdo->prepare("SELECT id,status FROM warehouse_stocktakes WHERE id=? FOR UPDATE");$q->execute([$stocktakeId]);$session=$q->fetch();if(!$session||$session['status']!=='draft')throw new RuntimeException('Bu sayım düzenlenebilir durumda değil.');
                     $q=$pdo->prepare('SELECT id,product_id,expected_quantity FROM warehouse_stocktake_items WHERE stocktake_id=? ORDER BY product_id FOR UPDATE');$q->execute([$stocktakeId]);$update=$pdo->prepare('UPDATE warehouse_stocktake_items SET counted_quantity=?,variance=?,counted_at=NOW() WHERE id=?');
                     foreach($q->fetchAll() as $item){$raw=$counts[(int)$item['product_id']]??null;if($raw===null||trim((string)$raw)==='')continue;if(!is_numeric($raw)||(float)$raw<0||(float)$raw>999999999999.999)throw new RuntimeException('Sayım miktarı geçersiz.');$counted=round((float)$raw,3);$update->execute([$counted,round($counted-(float)$item['expected_quantity'],3),(int)$item['id']]);}
-                    $pdo->commit();kd_audit('warehouse.stocktake_counts_saved','warehouse_stocktake',$stocktakeId);self::go('stocktake&id='.$stocktakeId);
+                    $pdo->commit();kd_audit('warehouse.stocktake_counts_saved','warehouse_stocktake',$stocktakeId);self::go('stocktake',$stocktakeId);
                 }
                 if($form==='complete_stocktake'){
                     $stocktakeId=max(0,(int)($_POST['stocktake_id']??0));$pdo->beginTransaction();$q=$pdo->prepare("SELECT * FROM warehouse_stocktakes WHERE id=? FOR UPDATE");$q->execute([$stocktakeId]);$session=$q->fetch();if(!$session||$session['status']!=='draft')throw new RuntimeException('Tamamlanacak açık sayım bulunamadı.');
