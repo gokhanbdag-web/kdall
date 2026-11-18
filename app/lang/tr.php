@@ -27,6 +27,7 @@ return [
     'nav.payments' => 'Ödeme Sistemleri',
     'nav.notifications' => 'Bildirim Merkezi',
     'nav.integrations' => 'API & Webhook',
+    'nav.files' => 'Dosya & Belge Yönetimi',
     'nav.tasks' => 'Görevler',
     'nav.system' => 'SİSTEM',
     'nav.users' => 'Kullanıcılar & Yetkiler',

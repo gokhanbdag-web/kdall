@@ -444,3 +444,7 @@ input[type=date],input[type=datetime-local],input[type=time],input[type=month]{-
 .api-scopes input{width:auto}
 .secret-once{padding:18px;margin-bottom:15px;border-color:#d7e6df}
 .secret-once code{display:block;overflow-wrap:anywhere;padding:12px;background:#f2f5f8;border-radius:8px;margin:10px 0}
+
+/* Secure document library */
+.file-version{display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)}
+.file-version input{max-width:145px;font-size:10px}

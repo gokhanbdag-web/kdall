@@ -31,6 +31,7 @@ return [
             ['label' => 'nav.payments', 'page' => 'payments', 'permission' => 'payments.view', 'icon' => 'credit-card'],
             ['label' => 'nav.notifications', 'page' => 'notifications', 'permission' => 'notifications.view', 'icon' => 'bell-ring'],
             ['label' => 'nav.integrations', 'page' => 'integrations', 'permission' => 'api.view', 'icon' => 'webhook'],
+            ['label' => 'nav.files', 'page' => 'files', 'permission' => 'files.view', 'icon' => 'folder-lock'],
             ['label' => 'nav.tasks', 'page' => 'tasks', 'permission' => 'tasks.view', 'icon' => 'list-checks']
         ]
     ],
