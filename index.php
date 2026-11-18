@@ -66,6 +66,11 @@ if ($page === 'suppliers' || $page === 'purchases') {
     exit;
 }
 
+if ($page === 'finance') {
+    KodVadAll\Modules\Finance\FinanceController::handle($pdo, $admin);
+    exit;
+}
+
 if ($page === 'settings') {
     KodVadAll\Modules\Settings\SettingsController::handle($pdo);
     exit;

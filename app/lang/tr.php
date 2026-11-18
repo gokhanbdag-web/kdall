@@ -12,6 +12,7 @@ return [
     'nav.sales' => 'Satış & Siparişler',
     'nav.suppliers' => 'Tedarikçiler',
     'nav.purchases' => 'Satın Alma',
+    'nav.finance' => 'Finans & Ön Muhasebe',
     'nav.tasks' => 'Görevler',
     'nav.system' => 'SİSTEM',
     'nav.users' => 'Kullanıcılar & Yetkiler',
