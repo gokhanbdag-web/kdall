@@ -448,3 +448,10 @@ input[type=date],input[type=datetime-local],input[type=time],input[type=month]{-
 /* Secure document library */
 .file-version{display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)}
 .file-version input{max-width:145px;font-size:10px}
+
+/* System diagnostics */
+.extension-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.extension-grid>div{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.extension-ok,.extension-missing{width:19px;height:19px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;background:#e4f5eb;color:#16845f}
+.extension-missing{background:#fff0e8;color:#b45d22}
+@media(max-width:600px){.extension-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}

@@ -84,5 +84,9 @@ jobs:
         run: php tests/files_module_smoke.php
       - name: Lint secure download endpoint
         run: php -l download.php
+      - name: Run system management smoke tests
+        run: php tests/system_module_smoke.php
+      - name: Lint backup download endpoint
+        run: php -l backup_download.php
       - name: Check JavaScript syntax
         run: node --check assets/admin.js && node --check assets/orders.js

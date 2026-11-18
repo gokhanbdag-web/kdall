@@ -141,6 +141,11 @@ if ($page === 'files') {
     exit;
 }
 
+if ($page === 'system') {
+    KodVadAll\Modules\System\SystemController::handle($pdo, $admin);
+    exit;
+}
+
 if ($page === 'settings') {
     KodVadAll\Modules\Settings\SettingsController::handle($pdo);
     exit;

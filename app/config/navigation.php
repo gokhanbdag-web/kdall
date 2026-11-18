@@ -32,6 +32,7 @@ return [
             ['label' => 'nav.notifications', 'page' => 'notifications', 'permission' => 'notifications.view', 'icon' => 'bell-ring'],
             ['label' => 'nav.integrations', 'page' => 'integrations', 'permission' => 'api.view', 'icon' => 'webhook'],
             ['label' => 'nav.files', 'page' => 'files', 'permission' => 'files.view', 'icon' => 'folder-lock'],
+            ['label' => 'nav.system', 'page' => 'system', 'permission' => 'system.view', 'icon' => 'server-cog'],
             ['label' => 'nav.tasks', 'page' => 'tasks', 'permission' => 'tasks.view', 'icon' => 'list-checks']
         ]
     ],
