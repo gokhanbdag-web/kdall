@@ -28,3 +28,5 @@ jobs:
           find . -type f -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
       - name: Run core smoke tests
         run: php tests/smoke.php
+      - name: Run admin shell smoke tests
+        run: php tests/admin_shell_smoke.php
