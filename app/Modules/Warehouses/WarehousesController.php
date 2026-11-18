@@ -6,6 +6,7 @@ namespace KodVadAll\Modules\Warehouses;
 use PDO;
 use RuntimeException;
 use Throwable;
+use KodVadAll\Core\AccountingPostingService;
 
 final class WarehousesController
 {
@@ -45,7 +46,7 @@ final class WarehousesController
                         $total=(float)$pdo->query('SELECT COALESCE(SUM(quantity),0) FROM product_warehouse_stocks WHERE product_id='.$pid)->fetchColumn();$pdo->prepare('UPDATE products SET stock_quantity=?,updated_at=NOW() WHERE id=?')->execute([$total,$pid]);
                         $variance=round($counted-$expected,3);if(abs($variance)>0.0005)$movement->execute([$pid,(int)$session['warehouse_id'],(int)$admin['id'],abs($variance),$expected,$counted,'Fiziksel sayım '.$session['stocktake_number'],'stocktake',$stocktakeId]);
                     }
-                    $pdo->prepare("UPDATE warehouse_stocktakes SET status='completed',completed_by=?,completed_at=NOW(),updated_at=NOW() WHERE id=?")->execute([(int)$admin['id'],$stocktakeId]);$pdo->commit();kd_audit('warehouse.stocktake_completed','warehouse_stocktake',$stocktakeId);self::go('stocktakes');
+                    $pdo->prepare("UPDATE warehouse_stocktakes SET status='completed',completed_by=?,completed_at=NOW(),updated_at=NOW() WHERE id=?")->execute([(int)$admin['id'],$stocktakeId]);AccountingPostingService::postStocktake($pdo,$stocktakeId,(int)$admin['id']);$pdo->commit();kd_audit('warehouse.stocktake_completed','warehouse_stocktake',$stocktakeId);self::go('stocktakes');
                 }
                 if($form==='create'){
                     $name=trim((string)($_POST['name']??''));$code=strtoupper(trim((string)($_POST['code']??'')));$address=trim((string)($_POST['address']??''));
