@@ -143,6 +143,7 @@ final class ProductController
         if ($action!=='list') self::notFound();
         $q=trim((string)($_GET['q']??''));
         $status=in_array($_GET['status']??'', ['active','inactive'], true)?(string)$_GET['status']:'';
+        $stockStatus=in_array($_GET['stock_status']??'', ['low','out','healthy'], true)?(string)$_GET['stock_status']:'';
         $categoryId=max(0,(int)($_GET['category_id']??0));
         $page=max(1,(int)($_GET['p']??1));
         $limit=20;
@@ -153,6 +154,10 @@ final class ProductController
         }
         if ($status!=='') {$where[]='p.status=?';$params[]=$status;}
         if ($categoryId>0) {$where[]='p.category_id=?';$params[]=$categoryId;}
+        if ($stockStatus==='low') {$where[]='p.track_stock=1 AND p.stock_quantity<=p.min_stock';}
+        elseif ($stockStatus==='out') {$where[]='p.track_stock=1 AND p.stock_quantity<=0';}
+        elseif ($stockStatus==='healthy') {$where[]='p.track_stock=1 AND p.stock_quantity>p.min_stock';}
+        $summary=$pdo->query("SELECT COUNT(*) tracked_products,COALESCE(SUM(stock_quantity*purchase_price),0) stock_value,SUM(CASE WHEN stock_quantity<=min_stock THEN 1 ELSE 0 END) low_stock_count,SUM(CASE WHEN stock_quantity<=0 THEN 1 ELSE 0 END) out_of_stock_count FROM products WHERE status='active' AND track_stock=1")->fetch();
         $whereSql=$where?' WHERE '.implode(' AND ',$where):'';
         $count=$pdo->prepare('SELECT COUNT(*) FROM products p'.$whereSql);$count->execute($params);
         $total=(int)$count->fetchColumn();$pages=max(1,(int)ceil($total/$limit));$page=min($page,$pages);$offset=($page-1)*$limit;
