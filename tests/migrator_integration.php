@@ -56,9 +56,9 @@ try {
     }
 
     foreach (['payment_transactions', 'accounting_journals', 'warehouse_stocktakes'] as $table) {
-        $check = $pdo->prepare('SHOW TABLES LIKE ?');
+        $check = $pdo->prepare('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?');
         $check->execute([$table]);
-        if (!$check->fetchColumn()) {
+        if ((int)$check->fetchColumn() !== 1) {
             throw new RuntimeException("Expected migrated table is missing: {$table}");
         }
     }
