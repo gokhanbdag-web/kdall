@@ -25,8 +25,8 @@ final class InvoiceController
      $q=$db->prepare('INSERT INTO invoices (invoice_number,invoice_type,status,customer_id,supplier_id,source_order_id,source_purchase_id,issue_date,due_date,currency,subtotal,tax_total,discount_total,grand_total,notes,created_by,created_at) VALUES (?,?,\'draft\',?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())');
      $q->execute([$tmp,$kind,$customerId,$supplierId,$kind==='purchase'?null:$source,$kind==='purchase'?$source:null,date('Y-m-d'),$due?:null,$currency,$sub,$tax,$discountTotal,$total,$notes?:null,(int)$admin['id']]);
      $invoiceId=(int)$db->lastInsertId();$number='FTR-'.date('Y').'-'.str_pad((string)$invoiceId,6,'0',STR_PAD_LEFT);$db->prepare('UPDATE invoices SET invoice_number=? WHERE id=?')->execute([$number,$invoiceId]);
-     $ins=$db->prepare('INSERT INTO invoice_items (invoice_id,product_id,description,sku,quantity,unit_price,tax_rate,line_subtotal,line_tax,line_total,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,NOW())');
-     foreach($sourceItems as $it){$ins->execute([$invoiceId,$it['product_id']??null,$it['product_name'],$it['sku']??null,$it['quantity'],$kind==='purchase'?$it['unit_cost']:$it['unit_price'],$it['tax_rate'],$it['line_subtotal'],$it['line_tax'],$it['line_total']]);}
+     $ins=$db->prepare('INSERT INTO invoice_items (invoice_id,product_id,description,sku,quantity,unit_price,unit_cost,tax_rate,line_subtotal,line_tax,line_total,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,NOW())');
+     foreach($sourceItems as $it){$ins->execute([$invoiceId,$it['product_id']??null,$it['product_name'],$it['sku']??null,$it['quantity'],$kind==='purchase'?$it['unit_cost']:$it['unit_price'],$kind==='purchase'?$it['unit_cost']:(float)($it['unit_cost']??0),$it['tax_rate'],$it['line_subtotal'],$it['line_tax'],$it['line_total']]);}
      $db->commit();kd_audit('invoice.created','invoice',$invoiceId);self::go('view',$invoiceId);
     }
     if($form==='status'){
