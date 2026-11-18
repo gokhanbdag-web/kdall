@@ -17,6 +17,7 @@ return [
             ['label' => 'nav.suppliers', 'page' => 'suppliers', 'permission' => 'suppliers.view', 'icon' => 'truck'],
             ['label' => 'nav.purchases', 'page' => 'purchases', 'permission' => 'purchases.view', 'icon' => 'clipboard-list'],
             ['label' => 'nav.finance', 'page' => 'finance', 'permission' => 'finance.view', 'icon' => 'wallet'],
+            ['label' => 'nav.accounting', 'page' => 'accounting', 'permission' => 'accounting.view', 'icon' => 'calculator'],
             ['label' => 'nav.invoices', 'page' => 'invoices', 'permission' => 'invoices.view', 'icon' => 'file-text'],
             ['label' => 'nav.marketplaces', 'page' => 'marketplaces', 'permission' => 'marketplaces.view', 'icon' => 'store'],
             ['label' => 'nav.shipping', 'page' => 'shipping', 'permission' => 'shipments.view', 'icon' => 'truck'],
