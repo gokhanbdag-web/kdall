@@ -1,8 +1,8 @@
 Options -Indexes
 <IfModule mod_rewrite.c>
 RewriteEngine On
-RewriteRule ^(app|storage|database)/ - [F,L,NC]
+RewriteRule ^(app|storage|database|\.git)/ - [F,L,NC]
 </IfModule>
-<FilesMatch "^(\.env|composer\.(json|lock)|README\.md)$">
+<FilesMatch "^(\.env|composer\.(json|lock)|README\.md|deploy-config\.php)$">
 Require all denied
 </FilesMatch>
