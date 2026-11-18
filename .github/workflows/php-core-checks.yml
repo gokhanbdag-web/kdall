@@ -48,5 +48,7 @@ jobs:
         run: php tests/finance_module_smoke.php
       - name: Run invoice module smoke tests
         run: php tests/invoice_module_smoke.php
+      - name: Run marketplace module smoke tests
+        run: php tests/marketplace_module_smoke.php
       - name: Check JavaScript syntax
         run: node --check assets/admin.js && node --check assets/orders.js

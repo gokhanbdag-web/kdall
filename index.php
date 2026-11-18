@@ -76,6 +76,11 @@ if ($page === 'invoices') {
     exit;
 }
 
+if ($page === 'marketplaces') {
+    KodVadAll\Modules\Marketplaces\MarketplaceController::handle($pdo, $admin);
+    exit;
+}
+
 if ($page === 'settings') {
     KodVadAll\Modules\Settings\SettingsController::handle($pdo);
     exit;

@@ -374,3 +374,12 @@ input[type=date],input[type=datetime-local],input[type=time],input[type=month]{-
 
 /* Invoice document layout */
 .invoice-paper{padding:34px;max-width:1000px}.invoice-head{display:flex;justify-content:space-between;gap:24px;padding-bottom:26px;border-bottom:1px solid var(--line)}.invoice-head h1{font-size:24px;margin:0 0 8px}.invoice-party{padding:24px 0;display:grid;gap:5px}.invoice-party small{color:var(--muted)}.invoice-totals{width:min(360px,100%);margin:24px 0 0 auto;border-top:1px solid var(--line);padding-top:12px}.invoice-totals p{display:flex;justify-content:space-between;gap:12px}.invoice-totals p:last-child{font-size:17px;border-top:1px solid var(--line);padding-top:12px}.text-success{color:#16845f}.text-danger{color:#bd4242}@media print{.sidebar,.topbar,.module-toolbar,footer,.panel:not(.invoice-paper){display:none!important}.main{padding:0!important}.invoice-paper{border:0!important;box-shadow:none!important;padding:0!important;max-width:none}}@media(max-width:600px){.invoice-paper{padding:16px}.invoice-head{flex-direction:column}}
+
+/* Marketplace connection management */
+.marketplace-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:16px}
+.marketplace-grid .panel{min-width:0}
+.marketplace-grid .customer-form-panel{padding:22px}
+.marketplace-grid .muted{font-size:11px;margin:8px 0 16px}
+.marketplace-grid input[type=password]{letter-spacing:.08em}
+@media(max-width:900px){.marketplace-grid{grid-template-columns:1fr}}
+@media(max-width:620px){.marketplace-grid .customer-form-panel{padding:16px}}
