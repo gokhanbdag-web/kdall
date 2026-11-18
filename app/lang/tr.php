@@ -26,6 +26,7 @@ return [
     'nav.site' => 'E-ticaret Sitesi & CMS',
     'nav.payments' => 'Ödeme Sistemleri',
     'nav.notifications' => 'Bildirim Merkezi',
+    'nav.integrations' => 'API & Webhook',
     'nav.tasks' => 'Görevler',
     'nav.system' => 'SİSTEM',
     'nav.users' => 'Kullanıcılar & Yetkiler',

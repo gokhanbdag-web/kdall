@@ -76,5 +76,9 @@ jobs:
         run: php tests/notifications_module_smoke.php
       - name: Lint automation cron
         run: php -l cron/automation.php
+      - name: Run API and webhook smoke tests
+        run: php tests/api_webhooks_smoke.php
+      - name: Lint API entrypoint
+        run: php -l api.php
       - name: Check JavaScript syntax
         run: node --check assets/admin.js && node --check assets/orders.js

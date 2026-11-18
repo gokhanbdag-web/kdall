@@ -131,6 +131,11 @@ if ($page === 'notifications') {
     exit;
 }
 
+if ($page === 'integrations') {
+    KodVadAll\Modules\Integrations\IntegrationsController::handle($pdo, $admin);
+    exit;
+}
+
 if ($page === 'settings') {
     KodVadAll\Modules\Settings\SettingsController::handle($pdo);
     exit;

@@ -50,7 +50,7 @@ Teslimat adresi: ".$address;
     $reference='MAN'.$orderId.bin2hex(random_bytes(3));
     $pdo->prepare('INSERT INTO payment_transactions (order_id,provider,provider_reference,amount,currency,status,created_at) VALUES (?,?,?,?,\'TRY\',\'pending\',NOW())')->execute([$orderId,$paymentMethod,$reference,$grand]);
    }
-   $pdo->commit();\KodVadAll\Core\NotificationService::notifyRoles($pdo,['owner','admin','manager'],'Yeni mağaza siparişi',$number.' numaralı web siparişi oluşturuldu.','index.php?page=orders&action=view&id='.$orderId,'success');$_SESSION['store_cart']=[];$_SESSION['store_last_order']=$number;$_SESSION['store_last_order_id']=$orderId;$_SESSION['store_last_payment_method']=$paymentMethod;
+   $pdo->commit();\KodVadAll\Core\NotificationService::notifyRoles($pdo,['owner','admin','manager'],'Yeni mağaza siparişi',$number.' numaralı web siparişi oluşturuldu.','index.php?page=orders&action=view&id='.$orderId,'success');\KodVadAll\Core\WebhookService::enqueue($pdo,'order.created',['id'=>$orderId,'order_number'=>$number,'status'=>'draft','grand_total'=>$grand]);$_SESSION['store_cart']=[];$_SESSION['store_last_order']=$number;$_SESSION['store_last_order_id']=$orderId;$_SESSION['store_last_payment_method']=$paymentMethod;
    if($paymentMethod==='paytr'){$_SESSION['paytr_iframe_token']=$paytrToken;header('Location: store.php?action=paytr');exit;}
    header('Location: store.php?action=thankyou');exit;
   }
