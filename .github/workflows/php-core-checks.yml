@@ -120,5 +120,7 @@ jobs:
         run: php tests/quality_module_smoke.php
       - name: Run accounting module smoke tests
         run: php tests/accounting_module_smoke.php
+      - name: Run accounting reports smoke tests
+        run: php tests/accounting_reports_smoke.php
       - name: Check JavaScript syntax
         run: node --check assets/admin.js && node --check assets/orders.js
