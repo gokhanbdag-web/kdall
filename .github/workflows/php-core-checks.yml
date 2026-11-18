@@ -70,6 +70,8 @@ jobs:
         run: php -l store.php
       - name: Run payments module smoke tests
         run: php tests/payments_module_smoke.php
+      - name: Run payment callback amount tests
+        run: php tests/payment_gateway_callback_amount_test.php
       - name: Lint payment callback endpoint
         run: php -l payment_callback.php
       - name: Run notifications module smoke tests
