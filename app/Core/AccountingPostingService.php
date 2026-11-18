@@ -34,12 +34,11 @@ final class AccountingPostingService
    self::journal($db,'finance_transfer',$transactionId,(string)$t['transaction_date'],'Kasa/banka transferi '.$t['transfer_code'],$userId,$currency,[[$destination,$amount,0,'Transfer girişi'],[$cash,0,$amount,'Transfer çıkışı']]);return;
   }
   if($t['transaction_type']==='transfer_in')return;
-  $receivable=self::account($db,'120');$payable=self::account($db,'320');$revenue=self::account($db,'600');$expense=self::account($db,'770');
   $lines=match((string)$t['transaction_type']){
-   'income'=>[[$cash,$amount,0,'Gelir tahsilatı'],[$revenue,0,$amount,'Gelir']],
-   'expense'=>[[$expense,$amount,0,'Gider'],[$cash,0,$amount,'Kasa/banka çıkışı']],
-   'collection'=>[[$cash,$amount,0,'Müşteri tahsilatı'],[$receivable,0,$amount,'Alıcılar tahsilatı']],
-   'supplier_payment'=>[[$payable,$amount,0,'Satıcı ödemesi'],[$cash,0,$amount,'Kasa/banka çıkışı']],
+   'income'=>[[$cash,$amount,0,'Gelir tahsilatı'],[self::account($db,'600'),0,$amount,'Gelir']],
+   'expense'=>[[self::account($db,'770'),$amount,0,'Gider'],[$cash,0,$amount,'Kasa/banka çıkışı']],
+   'collection'=>[[$cash,$amount,0,'Müşteri tahsilatı'],[self::account($db,'120'),0,$amount,'Alıcılar tahsilatı']],
+   'supplier_payment'=>[[self::account($db,'320'),$amount,0,'Satıcı ödemesi'],[$cash,0,$amount,'Kasa/banka çıkışı']],
    default=>throw new RuntimeException('Finans hareketi türü otomatik muhasebeye uygun değil.')
   };
   self::journal($db,'finance_transaction',$transactionId,(string)$t['transaction_date'],'Finans hareketi #'.$transactionId,$userId,$currency,$lines);
@@ -57,11 +56,11 @@ final class AccountingPostingService
   if($i['invoice_type']==='proforma')return;
   $currency=(string)$i['currency'];$total=round((float)$i['grand_total'],2);$subtotal=round((float)$i['subtotal'],2);$tax=round((float)$i['tax_total'],2);$discount=round((float)($i['discount_total']??0),2);
   if($i['invoice_type']==='sales'){
-   $receivable=self::account($db,'120');$revenue=self::account($db,'600');$vat=self::account($db,'391');$discountAccount=self::account($db,'610');
+   $receivable=self::account($db,'120');$revenue=self::account($db,'600');$vat=self::account($db,'391');$discountAccount=$discount>0?self::account($db,'610'):0;
    $lines=[[$receivable,$total,0,'Satış faturası alacağı'],[$revenue,0,$subtotal,'Satış geliri']];
    if($tax>0)$lines[]=[$vat,0,$tax,'Hesaplanan KDV'];if($discount>0)$lines[]=[$discountAccount,$discount,0,'Satış iskontosu'];
   }elseif($i['invoice_type']==='purchase'){
-   $inventory=self::account($db,'153');$vat=self::account($db,'191');$payable=self::account($db,'320');
+   $inventory=self::account($db,'153');$vat=$tax>0?self::account($db,'191'):0;$payable=self::account($db,'320');
    $lines=[[$inventory,$subtotal,0,'Alış / stok maliyeti']];if($tax>0)$lines[]=[$vat,$tax,0,'İndirilecek KDV'];$lines[]=[$payable,0,$total,'Satıcı borcu'];
   }else{return;}
   self::journal($db,'invoice',$invoiceId,(string)$i['issue_date'],'Fatura '.$i['invoice_number'],$userId,$currency,$lines);
@@ -74,6 +73,6 @@ final class AccountingPostingService
   foreach($q->fetchAll() as $line)$lines[]=[(int)$line['account_id'],(float)$line['credit'],(float)$line['debit'],'İptal ters kaydı · '.($line['line_description']??'')];
   if(!$lines)return;
     $currencyQuery=$db->prepare('SELECT currency FROM accounting_journal_lines WHERE journal_id=? LIMIT 1');$currencyQuery->execute([(int)$original['id']]);$currency=(string)$currencyQuery->fetchColumn();
-  self::journal($db,'invoice_reversal',$invoiceId,(string)$original['journal_date'],'Fatura iptal ters kaydı #'.$invoiceId,$userId,$currency,$lines);
+  self::journal($db,'invoice_reversal',$invoiceId,date('Y-m-d'),'Fatura iptal ters kaydı #'.$invoiceId,$userId,$currency,$lines);
  }
 }
