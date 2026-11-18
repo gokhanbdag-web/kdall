@@ -29,7 +29,7 @@ try {
         throw new RuntimeException('Base schema could not be read.');
     }
 
-    $statements = preg_split('/;\\s*(?:\\r?\\n|$)/', trim($schema)) ?: [];
+    $statements = preg_split('/;\\s*(?:\\r?\n|$)/', trim($schema)) ?: [];
     foreach ($statements as $statement) {
         $statement = trim($statement);
         if ($statement !== '') {
@@ -63,8 +63,8 @@ try {
         }
     }
 
-    echo "KodVadAll MySQL migration integration tests passed ({$after} migrations).\\n";
+    echo "KodVadAll MySQL migration integration tests passed ({$after} migrations).\n";
 } catch (Throwable $e) {
-    fwrite(STDERR, 'Migration integration test failed: ' . $e->getMessage() . "\\n");
+    fwrite(STDERR, 'Migration integration test failed: ' . $e->getMessage() . "\n");
     exit(1);
 }
