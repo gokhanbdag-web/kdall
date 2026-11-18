@@ -418,3 +418,8 @@ input[type=date],input[type=datetime-local],input[type=time],input[type=month]{-
 
 /* Marketing campaigns and loyalty */
 .marketing-campaign-code{font-family:ui-monospace,monospace;font-weight:800;letter-spacing:.05em}
+
+/* CMS administration */
+.cms-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px}
+.cms-tabs a{padding:9px 14px;border:1px solid var(--line);border-radius:9px;color:var(--muted);text-decoration:none;font-size:12px;font-weight:700}
+.cms-tabs a:hover{border-color:var(--primary);color:var(--primary)}

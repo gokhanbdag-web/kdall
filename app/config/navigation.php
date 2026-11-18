@@ -27,6 +27,7 @@ return [
             ['label' => 'nav.communications', 'page' => 'communications', 'permission' => 'communications.view', 'icon' => 'messages-square'],
             ['label' => 'nav.reports', 'page' => 'reports', 'permission' => 'reports.view', 'icon' => 'chart-no-axes-combined'],
             ['label' => 'nav.marketing', 'page' => 'marketing', 'permission' => 'marketing.view', 'icon' => 'ticket-percent'],
+            ['label' => 'nav.site', 'page' => 'site', 'permission' => 'site.view', 'icon' => 'panels-top-left'],
             ['label' => 'nav.tasks', 'page' => 'tasks', 'permission' => 'tasks.view', 'icon' => 'list-checks']
         ]
     ],

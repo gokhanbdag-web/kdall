@@ -64,5 +64,9 @@ jobs:
         run: php tests/reports_module_smoke.php
       - name: Run marketing module smoke tests
         run: php tests/marketing_module_smoke.php
+      - name: Run CMS smoke tests
+        run: php tests/cms_module_smoke.php
+      - name: Lint storefront entrypoint
+        run: php -l store.php
       - name: Check JavaScript syntax
         run: node --check assets/admin.js && node --check assets/orders.js

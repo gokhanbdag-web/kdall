@@ -23,6 +23,7 @@ return [
     'nav.communications' => 'İletişim & Mesajlar',
     'nav.reports' => 'Raporlar & Analiz',
     'nav.marketing' => 'Pazarlama & Kampanyalar',
+    'nav.site' => 'E-ticaret Sitesi & CMS',
     'nav.tasks' => 'Görevler',
     'nav.system' => 'SİSTEM',
     'nav.users' => 'Kullanıcılar & Yetkiler',
