@@ -15,10 +15,21 @@ final class Migrator
             return;
         }
 
+        $files = glob(rtrim($directory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . '*.sql') ?: [];
+        sort($files, SORT_STRING);
+        $names = array_map('basename', $files);
+
         $pdo->exec("CREATE TABLE IF NOT EXISTS schema_migrations (
             migration VARCHAR(190) NOT NULL PRIMARY KEY,
             applied_at DATETIME NOT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        // Most web requests arrive after installation with every migration applied.
+        // Skip the advisory lock and per-file checks when the applied set is already exact.
+        $applied = $pdo->query('SELECT migration FROM schema_migrations ORDER BY migration')->fetchAll(PDO::FETCH_COLUMN);
+        if ($applied === $names) {
+            return;
+        }
 
         $locked = (int)$pdo->query("SELECT GET_LOCK('kodvadall_migrations', 10)")->fetchColumn();
         if ($locked !== 1) {
@@ -26,16 +37,15 @@ final class Migrator
         }
 
         try {
-            $files = glob(rtrim($directory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . '*.sql') ?: [];
-            sort($files, SORT_STRING);
-
-            $check = $pdo->prepare('SELECT 1 FROM schema_migrations WHERE migration = ? LIMIT 1');
+            // Re-read after acquiring the lock because another request may have
+            // completed the migrations between the initial fast-path check and lock acquisition.
+            $applied = $pdo->query('SELECT migration FROM schema_migrations ORDER BY migration')->fetchAll(PDO::FETCH_COLUMN);
+            $appliedLookup = array_fill_keys($applied, true);
             $mark = $pdo->prepare('INSERT IGNORE INTO schema_migrations (migration, applied_at) VALUES (?, NOW())');
 
             foreach ($files as $file) {
                 $name = basename($file);
-                $check->execute([$name]);
-                if ($check->fetchColumn()) {
+                if (isset($appliedLookup[$name])) {
                     continue;
                 }
 
@@ -52,6 +62,7 @@ final class Migrator
                     }
                 }
                 $mark->execute([$name]);
+                $appliedLookup[$name] = true;
             }
         } finally {
             $pdo->query("SELECT RELEASE_LOCK('kodvadall_migrations')");
