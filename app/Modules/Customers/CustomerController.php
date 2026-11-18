@@ -19,9 +19,7 @@ final class CustomerController
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             kd_csrf_check();
             $formAction = (string)($_POST['form_action'] ?? '');
-            if ($formAction !== 'activity') {
-                kd_require_permission('customers.manage');
-            }
+            kd_require_permission('customers.manage');
 
             try {
                 if ($formAction === 'create') {
