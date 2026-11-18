@@ -184,6 +184,11 @@ if ($page === 'data') {
     exit;
 }
 
+if ($page === 'license') {
+    \KodVadAll\Modules\License\LicenseController::handle($pdo, $admin);
+    exit;
+}
+
 if ($page === 'settings') {
     KodVadAll\Modules\Settings\SettingsController::handle($pdo);
     exit;

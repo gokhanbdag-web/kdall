@@ -94,5 +94,11 @@ jobs:
         run: php tests/data_transfer_smoke.php
       - name: Lint CSV export endpoint
         run: php -l export.php
+      - name: Run license module smoke tests
+        run: php tests/license_module_smoke.php
+      - name: Lint license request endpoint
+        run: php -l license_request.php
+      - name: Lint license tools
+        run: php -l tools/generate-license-keypair.php && php -l tools/issue-license.php
       - name: Check JavaScript syntax
         run: node --check assets/admin.js && node --check assets/orders.js
