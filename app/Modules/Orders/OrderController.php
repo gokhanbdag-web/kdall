@@ -117,6 +117,11 @@ final class OrderController
                     $from=(string)$order['status'];
                     self::validateTransition($from,$target);
                     if($target==='confirmed' && in_array((string)($order["payment_method"]??'manual'),['paytr','bank_transfer'],true) && (string)($order["payment_status"]??'pending')!=='paid') throw new RuntimeException('Çevrimiçi ödeme veya banka havalesi doğrulanmadan sipariş onaylanamaz.');
+                    if($target==='cancelled'){
+                        if((string)($order['order_source']??'')==='pos'||(string)($order['payment_status']??'')==='paid')throw new RuntimeException('Ödemesi alınmış veya POS üzerinden tamamlanmış satış doğrudan iptal edilemez. İade işlemini kullanın.');
+                        $invoiceCheck=$pdo->prepare("SELECT COUNT(*) FROM invoices WHERE source_order_id=? AND status IN ('issued','paid')");$invoiceCheck->execute([$orderId]);
+                        if((int)$invoiceCheck->fetchColumn()>0)throw new RuntimeException('Bu siparişe ait muhasebeleştirilmiş fatura var. Önce faturayı iptal edin, ardından siparişi iptal edebilirsiniz.');
+                    }
                     if ($target==='confirmed' && $from==='draft') self::deductStock($pdo,$orderId,$number=(string)$order['order_number'],(int)($order['warehouse_id']??0));
                     if ($target==='cancelled' && !empty($order['stock_deducted_at']) && empty($order['stock_reversed_at'])) self::restoreStock($pdo,$orderId,(string)$order['order_number'],(int)($order['warehouse_id']??0));
                     $pdo->prepare('UPDATE orders SET status=?,stock_deducted_at=IF(?=?,NOW(),stock_deducted_at),stock_reversed_at=IF(?=? AND stock_deducted_at IS NOT NULL,NOW(),stock_reversed_at),updated_at=NOW() WHERE id=?')->execute([$target,$target,'confirmed',$target,'cancelled',$orderId]);
