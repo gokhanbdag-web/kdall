@@ -19,7 +19,7 @@ $userInitial = function_exists('mb_substr') ? mb_strtoupper(mb_substr($userName,
                 <a class="nav-item<?= $active ? ' active' : '' ?><?= !empty($item['coming']) ? ' nav-coming' : '' ?>"
                    href="<?= empty($item['coming']) ? 'index.php?page=' . rawurlencode($item['page']) : '#' ?>"
                    <?= !empty($item['coming']) ? 'aria-disabled="true" tabindex="-1"' : '' ?>>
-                    <span class="nav-icon" aria-hidden="true"><?= kd_e($item['icon']) ?></span>
+                    <span class="nav-icon" data-icon="<?= kd_e($item['icon']) ?>" aria-hidden="true"></span>
                     <span class="nav-label"><?= kd_e(kd_t($item['label'])) ?></span>
                     <?php if (!empty($item['coming'])): ?><span class="nav-soon"><?= kd_e(kd_t('nav.coming')) ?></span><?php endif; ?>
                 </a>
