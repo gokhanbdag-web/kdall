@@ -59,8 +59,9 @@ final class OrderController
                     $taxTotal=array_sum(array_column($items,'tax'));
                     $grand=$subtotal+$taxTotal;
                     $pdo->beginTransaction();
-                    $stmt=$pdo->prepare("INSERT INTO orders (order_number,customer_id,status,subtotal,tax_total,grand_total,currency,created_at) VALUES ('PENDING',?,'draft',?,?,?,'TRY',NOW())");
-                    $stmt->execute([$customerId?:null,$subtotal,$taxTotal,$grand]);
+                    $temporaryNumber='TMP-'.bin2hex(random_bytes(10));
+                    $stmt=$pdo->prepare("INSERT INTO orders (order_number,customer_id,status,subtotal,tax_total,grand_total,currency,created_at) VALUES (?,?,'draft',?,?,?,'TRY',NOW())");
+                    $stmt->execute([$temporaryNumber,$customerId?:null,$subtotal,$taxTotal,$grand]);
                     $orderId=(int)$pdo->lastInsertId();
                     $number='SIP-'.date('Y').'-'.str_pad((string)$orderId,6,'0',STR_PAD_LEFT);
                     $pdo->prepare('UPDATE orders SET order_number=? WHERE id=?')->execute([$number,$orderId]);
@@ -85,7 +86,7 @@ final class OrderController
                     self::validateTransition($from,$target);
                     if ($target==='confirmed' && $from==='draft') self::deductStock($pdo,$orderId,$number=(string)$order['order_number']);
                     if ($target==='cancelled' && !empty($order['stock_deducted_at']) && empty($order['stock_reversed_at'])) self::restoreStock($pdo,$orderId,(string)$order['order_number']);
-                    $pdo->prepare('UPDATE orders SET status=?,stock_deducted_at=IF(?="confirmed",NOW(),stock_deducted_at),stock_reversed_at=IF(?="cancelled",NOW(),stock_reversed_at),updated_at=NOW() WHERE id=?')->execute([$target,$target,$target,$orderId]);
+                    $pdo->prepare('UPDATE orders SET status=?,stock_deducted_at=IF(?=?,NOW(),stock_deducted_at),stock_reversed_at=IF(?=? AND stock_deducted_at IS NOT NULL,NOW(),stock_reversed_at),updated_at=NOW() WHERE id=?')->execute([$target,$target,'confirmed',$target,'cancelled',$orderId]);
                     self::history($pdo,$orderId,(int)$admin['id'],$from,$target,$note);
                     $pdo->commit();
                     kd_audit('order.status_changed','order',$orderId);
@@ -176,7 +177,7 @@ final class OrderController
             if(!$item['product_id']) continue;
             $lock=$pdo->prepare('SELECT stock_quantity,track_stock FROM products WHERE id=? FOR UPDATE');
             $lock->execute([(int)$item['product_id']]);$product=$lock->fetch();
-            if(!$product || !(int)$product['track_stock']) continue;
+            if(!$product) continue;
             $before=(float)$product['stock_quantity'];$qty=(float)$item['quantity'];$after=$before+$qty;
             $pdo->prepare('UPDATE products SET stock_quantity=?,updated_at=NOW() WHERE id=?')->execute([$after,(int)$item['product_id']]);
             $move=$pdo->prepare("INSERT INTO product_stock_movements (product_id,user_id,movement_type,quantity,before_quantity,after_quantity,note,reference_type,reference_id,created_at) VALUES (?,?,'in',?,?,?,?,?,?,NOW())");
