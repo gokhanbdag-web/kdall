@@ -58,16 +58,42 @@ final class OrderController
                     $subtotal=array_sum(array_column($items,'subtotal'));
                     $taxTotal=array_sum(array_column($items,'tax'));
                     $grand=$subtotal+$taxTotal;
+                    $couponCode=strtoupper(trim((string)($_POST['coupon_code']??'')));
+                    $discountTotal=0.0;
+                    $campaign=null;
                     $pdo->beginTransaction();
+                    if($couponCode!==''){
+                        $couponQuery=$pdo->prepare("SELECT * FROM campaigns WHERE code=? AND status='active' AND starts_at<=NOW() AND (ends_at IS NULL OR ends_at>=NOW()) FOR UPDATE");
+                        $couponQuery->execute([$couponCode]);
+                        $campaign=$couponQuery->fetch();
+                        if(!$campaign) throw new RuntimeException('Kupon kodu geçersiz, süresi dolmuş veya kullanıma kapalı.');
+                        if((float)$campaign['minimum_order']>$subtotal) throw new RuntimeException('Kupon için minimum sepet tutarı karşılanmıyor.');
+                        if((int)$campaign['usage_limit']>0 && (int)$campaign['usage_count']>=(int)$campaign['usage_limit']) throw new RuntimeException('Kupon kullanım limiti dolmuş.');
+                        if($customerId>0 && (int)$campaign['per_customer_limit']>0){
+                            $used=$pdo->prepare('SELECT COUNT(*) FROM coupon_redemptions WHERE campaign_id=? AND customer_id=?');
+                            $used->execute([(int)$campaign['id'],$customerId]);
+                            if((int)$used->fetchColumn()>=(int)$campaign['per_customer_limit']) throw new RuntimeException('Bu kupon müşteri kullanım limitine ulaştı.');
+                        }
+                        $discountTotal=$campaign['discount_type']==='percentage'?round($subtotal*(float)$campaign['discount_value']/100,2):min($subtotal,(float)$campaign['discount_value']);
+                        if((float)$campaign['maximum_discount']>0)$discountTotal=min($discountTotal,(float)$campaign['maximum_discount']);
+                        $discountTotal=min($discountTotal,$grand);
+                        if($discountTotal<=0)throw new RuntimeException('Kupon indirimi hesaplanamadı.');
+                        $grand-=$discountTotal;
+                    }
                     $temporaryNumber='TMP-'.bin2hex(random_bytes(10));
-                    $stmt=$pdo->prepare("INSERT INTO orders (order_number,customer_id,status,subtotal,tax_total,grand_total,currency,created_at) VALUES (?,?,'draft',?,?,?,'TRY',NOW())");
-                    $stmt->execute([$temporaryNumber,$customerId?:null,$subtotal,$taxTotal,$grand]);
+                    $stmt=$pdo->prepare("INSERT INTO orders (order_number,customer_id,status,subtotal,tax_total,discount_total,grand_total,coupon_code,currency,created_at) VALUES (?,?,'draft',?,?,?,?,?,'TRY',NOW())");
+                    $stmt->execute([$temporaryNumber,$customerId?:null,$subtotal,$taxTotal,$discountTotal,$grand,$couponCode?:null]);
                     $orderId=(int)$pdo->lastInsertId();
                     $number='SIP-'.date('Y').'-'.str_pad((string)$orderId,6,'0',STR_PAD_LEFT);
                     $pdo->prepare('UPDATE orders SET order_number=? WHERE id=?')->execute([$number,$orderId]);
                     $insert=$pdo->prepare('INSERT INTO order_items (order_id,product_id,product_name,sku,quantity,unit_price,tax_rate,line_subtotal,line_tax,line_total,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,NOW())');
                     foreach($items as $item) {
                         $insert->execute([$orderId,$item['product_id'],$item['name'],$item['sku'],$item['quantity'],$item['unit_price'],$item['tax_rate'],$item['subtotal'],$item['tax'],$item['total']]);
+                    }
+                    if($discountTotal>0 && $campaign){
+                        $insert->execute([$orderId,null,'Kampanya indirimi: '.$couponCode,$couponCode,1,-$discountTotal,0,-$discountTotal,0,-$discountTotal]);
+                        $pdo->prepare('INSERT INTO coupon_redemptions (campaign_id,order_id,customer_id,discount_amount,redeemed_at) VALUES (?,?,?,?,NOW())')->execute([(int)$campaign['id'],$orderId,$customerId?:null,$discountTotal]);
+                        $pdo->prepare('UPDATE campaigns SET usage_count=usage_count+1 WHERE id=?')->execute([(int)$campaign['id']]);
                     }
                     self::history($pdo,$orderId,(int)$admin['id'],null,'draft','Sipariş oluşturuldu');
                     $pdo->commit();
@@ -88,6 +114,15 @@ final class OrderController
                     if ($target==='cancelled' && !empty($order['stock_deducted_at']) && empty($order['stock_reversed_at'])) self::restoreStock($pdo,$orderId,(string)$order['order_number']);
                     $pdo->prepare('UPDATE orders SET status=?,stock_deducted_at=IF(?=?,NOW(),stock_deducted_at),stock_reversed_at=IF(?=? AND stock_deducted_at IS NOT NULL,NOW(),stock_reversed_at),updated_at=NOW() WHERE id=?')->execute([$target,$target,'confirmed',$target,'cancelled',$orderId]);
                     self::history($pdo,$orderId,(int)$admin['id'],$from,$target,$note);
+                    if($target==='completed' && !empty($order['customer_id'])){
+                        $points=(int)floor((float)$order['grand_total']/100);
+                        if($points>0){
+                            $pdo->prepare('INSERT IGNORE INTO loyalty_accounts (customer_id,points_balance,updated_at) VALUES (?,0,NOW())')->execute([(int)$order['customer_id']]);
+                            $pointTx=$pdo->prepare("INSERT IGNORE INTO loyalty_transactions (customer_id,order_id,direction,points,description,created_by,created_at) VALUES (?,?,'earn',?,?,?,NOW())");
+                            $pointTx->execute([(int)$order['customer_id'],$orderId,$points,'Tamamlanan sipariş '.$order['order_number'],(int)$admin['id']]);
+                            if($pointTx->rowCount()>0)$pdo->prepare('UPDATE loyalty_accounts SET points_balance=points_balance+?,updated_at=NOW() WHERE customer_id=?')->execute([$points,(int)$order['customer_id']]);
+                        }
+                    }
                     $pdo->commit();
                     kd_audit('order.status_changed','order',$orderId);
                     self::redirect('view',$orderId);

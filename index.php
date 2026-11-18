@@ -111,6 +111,11 @@ if ($page === 'reports') {
     exit;
 }
 
+if ($page === 'marketing') {
+    KodVadAll\Modules\Marketing\MarketingController::handle($pdo, $admin);
+    exit;
+}
+
 if ($page === 'settings') {
     KodVadAll\Modules\Settings\SettingsController::handle($pdo);
     exit;

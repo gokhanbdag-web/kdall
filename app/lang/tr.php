@@ -22,6 +22,7 @@ return [
     'nav.hr' => 'Personel & İK',
     'nav.communications' => 'İletişim & Mesajlar',
     'nav.reports' => 'Raporlar & Analiz',
+    'nav.marketing' => 'Pazarlama & Kampanyalar',
     'nav.tasks' => 'Görevler',
     'nav.system' => 'SİSTEM',
     'nav.users' => 'Kullanıcılar & Yetkiler',

@@ -62,5 +62,7 @@ jobs:
         run: php tests/communications_module_smoke.php
       - name: Run reports module smoke tests
         run: php tests/reports_module_smoke.php
+      - name: Run marketing module smoke tests
+        run: php tests/marketing_module_smoke.php
       - name: Check JavaScript syntax
         run: node --check assets/admin.js && node --check assets/orders.js
