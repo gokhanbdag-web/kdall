@@ -66,4 +66,11 @@ return [
     'orders.shipped' => 'Kargolandı',
     'orders.completed' => 'Tamamlandı',
     'orders.cancelled' => 'İptal',
+    'tasks.title' => 'Görevler',
+    'tasks.subtitle' => 'İşleri planlayın, sorumluları belirleyin ve son tarihleri takip edin.',
+    'tasks.new' => 'Yeni görev',
+    'tasks.open' => 'Açık',
+    'tasks.in_progress' => 'Devam ediyor',
+    'tasks.completed' => 'Tamamlandı',
+    'tasks.cancelled' => 'İptal',
 ];
