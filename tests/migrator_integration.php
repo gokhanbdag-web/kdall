@@ -93,6 +93,27 @@ try {
     $recipeId = (int)$pdo->lastInsertId();
     $pdo->prepare("INSERT INTO production_orders (order_number,recipe_id,output_quantity,status,created_at) VALUES (?, ?,1,'planned',NOW())")->execute(['MIGRATION-TEST-PRODUCTION',$recipeId]);
 
+    // Stage all migrations through 041, then seed a legacy service job for 042.
+    $beforeServiceWarehouse = sys_get_temp_dir() . '/kdall-migrations-pre-042-' . bin2hex(random_bytes(5));
+    if (!mkdir($beforeServiceWarehouse, 0700, true)) {
+        throw new RuntimeException('Could not create temporary service migration directory.');
+    }
+    foreach ($files as $file) {
+        if (strcmp(basename($file), '042_service_job_warehouse.sql') >= 0) {
+            continue;
+        }
+        if (!copy($file, $beforeServiceWarehouse . '/' . basename($file))) {
+            throw new RuntimeException('Could not stage migration: ' . basename($file));
+        }
+    }
+    Migrator::run($pdo, $beforeServiceWarehouse);
+    foreach (glob($beforeServiceWarehouse . '/*') ?: [] as $stagedFile) {
+        unlink($stagedFile);
+    }
+    rmdir($beforeServiceWarehouse);
+
+    $pdo->prepare("INSERT INTO service_jobs (service_number,device_name,issue_description,status,priority,received_at,created_at) VALUES (?,? ,?,'received','normal',NOW(),NOW())")->execute(['MIGRATION-TEST-SERVICE','Migration test device','Legacy service job']);
+
     Migrator::run($pdo, $directory);
     $applied = $pdo->query('SELECT migration FROM schema_migrations ORDER BY migration')->fetchAll(PDO::FETCH_COLUMN);
     if ($applied !== $expected) {
@@ -128,6 +149,12 @@ try {
     $legacyProduction->execute(['MIGRATION-TEST-PRODUCTION']);
     if ((int)$legacyProduction->fetchColumn() !== 1) {
         throw new RuntimeException('Existing production orders were not backfilled to the default warehouse.');
+    }
+
+    $legacyService = $pdo->prepare('SELECT w.is_default FROM service_jobs sj LEFT JOIN warehouses w ON w.id=sj.warehouse_id WHERE sj.service_number=?');
+    $legacyService->execute(['MIGRATION-TEST-SERVICE']);
+    if ((int)$legacyService->fetchColumn() !== 1) {
+        throw new RuntimeException('Existing service jobs were not backfilled to the default warehouse.');
     }
 
     foreach (['payment_transactions', 'accounting_journals', 'warehouse_stocktakes'] as $table) {
