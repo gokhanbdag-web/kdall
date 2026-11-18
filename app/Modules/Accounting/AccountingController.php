@@ -16,7 +16,7 @@ final class AccountingController
   $accountId=max(0,(int)($_GET['account_id']??0));
   $accounts=$db->query('SELECT id,code,name,account_type,is_active FROM accounting_accounts ORDER BY code')->fetchAll();
   $trial=[];$statement=[];$ledger=[];$opening=0.0;$ledgerTotals=['debit'=>0.0,'credit'=>0.0,'closing'=>0.0];
-  $summary=$db->prepare("SELECT a.account_type,COALESCE(SUM(l.debit),0) debit,COALESCE(SUM(l.credit),0) credit FROM accounting_accounts a LEFT JOIN accounting_journal_lines l ON l.account_id=a.id LEFT JOIN accounting_journals j ON j.id=l.journal_id AND j.status='posted' AND j.journal_date BETWEEN ? AND ? WHERE a.is_active=1 GROUP BY a.account_type");
+  $summary=$db->prepare("SELECT a.account_type,COALESCE(SUM(CASE WHEN j.id IS NOT NULL THEN l.debit ELSE 0 END),0) debit,COALESCE(SUM(CASE WHEN j.id IS NOT NULL THEN l.credit ELSE 0 END),0) credit FROM accounting_accounts a LEFT JOIN accounting_journal_lines l ON l.account_id=a.id LEFT JOIN accounting_journals j ON j.id=l.journal_id AND j.status='posted' AND j.journal_date BETWEEN ? AND ? WHERE a.is_active=1 GROUP BY a.account_type");
   $summary->execute([$from,$to]);$byType=[];foreach($summary->fetchAll() as $row)$byType[$row['account_type']]=['debit'=>(float)$row['debit'],'credit'=>(float)$row['credit']];
   $income=max(0.0,($byType['income']['credit']??0)-($byType['income']['debit']??0));
   $expense=max(0.0,($byType['expense']['debit']??0)-($byType['expense']['credit']??0));
