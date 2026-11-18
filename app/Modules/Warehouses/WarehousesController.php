@@ -71,7 +71,7 @@ final class WarehousesController
             }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();error_log('KodVadAll warehouses: '.$e->getMessage());$errors[]=$e instanceof RuntimeException?$e->getMessage():'Depo işlemi tamamlanamadı. Bilgileri kontrol edin.';}
         }
         if($action==='transfers'){
-            $warehouses=$pdo->query("SELECT id,name,code FROM warehouses WHERE status='active' ORDER BY is_default DESC,name")->fetchAll();
+            $warehouses=$pdo->query("SELECT id,name,code,is_default FROM warehouses WHERE status='active' ORDER BY is_default DESC,name")->fetchAll();
             $products=$pdo->query("SELECT id,name,sku,unit FROM products WHERE status='active' AND track_stock=1 ORDER BY name")->fetchAll();
             $transfers=$pdo->query("SELECT t.*,f.name AS from_name,to_w.name AS to_name,u.name AS user_name,(SELECT COUNT(*) FROM warehouse_transfer_items i WHERE i.transfer_id=t.id) item_count FROM warehouse_transfers t JOIN warehouses f ON f.id=t.from_warehouse_id JOIN warehouses to_w ON to_w.id=t.to_warehouse_id LEFT JOIN users u ON u.id=t.created_by ORDER BY t.id DESC LIMIT 100")->fetchAll();
             $pageTitle='Depo Transferleri';ob_start();require KD_ROOT.'/app/Views/warehouses/transfers.php';$content=ob_get_clean();require KD_ROOT.'/app/Views/layouts/admin.php';return;
