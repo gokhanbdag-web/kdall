@@ -124,5 +124,7 @@ jobs:
         run: php tests/accounting_reports_smoke.php
       - name: Run accounting automation smoke tests
         run: php tests/accounting_automation_smoke.php
+      - name: Run inventory and production costing smoke tests
+        run: php tests/inventory_production_costing_smoke.php
       - name: Check JavaScript syntax
         run: node --check assets/admin.js && node --check assets/orders.js

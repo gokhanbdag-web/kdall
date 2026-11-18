@@ -35,7 +35,7 @@ final class OrderController
                         $qty=(float)($quantities[$i]??0);
                         if ($productId<1 && $qty<=0) continue;
                         if ($productId<1 || $qty<=0) throw new RuntimeException('Ürün ve miktar bilgilerini kontrol edin.');
-                        $stmt=$pdo->prepare("SELECT id,name,sku,sale_price,status FROM products WHERE id=? LIMIT 1");
+                        $stmt=$pdo->prepare("SELECT id,name,sku,sale_price,purchase_price,status FROM products WHERE id=? LIMIT 1");
                         $stmt->execute([$productId]);$product=$stmt->fetch();
                         if (!$product || $product['status']!=='active') throw new RuntimeException('Seçilen ürün bulunamadı veya aktif değil.');
                         $price=(float)($prices[$i]??$product['sale_price']);
@@ -45,7 +45,7 @@ final class OrderController
                         $taxAmount=round($subtotal*$tax/100,2);
                         $items[]=[
                             'product_id'=>$productId,'name'=>$product['name'],'sku'=>$product['sku'],
-                            'quantity'=>$qty,'unit_price'=>$price,'tax_rate'=>$tax,
+                            'quantity'=>$qty,'unit_price'=>$price,'unit_cost'=>(float)$product['purchase_price'],'tax_rate'=>$tax,
                             'subtotal'=>$subtotal,'tax'=>$taxAmount,'total'=>$subtotal+$taxAmount
                         ];
                     }
@@ -86,12 +86,12 @@ final class OrderController
                     $orderId=(int)$pdo->lastInsertId();
                     $number='SIP-'.date('Y').'-'.str_pad((string)$orderId,6,'0',STR_PAD_LEFT);
                     $pdo->prepare('UPDATE orders SET order_number=? WHERE id=?')->execute([$number,$orderId]);
-                    $insert=$pdo->prepare('INSERT INTO order_items (order_id,product_id,product_name,sku,quantity,unit_price,tax_rate,line_subtotal,line_tax,line_total,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,NOW())');
+                    $insert=$pdo->prepare('INSERT INTO order_items (order_id,product_id,product_name,sku,quantity,unit_price,unit_cost,tax_rate,line_subtotal,line_tax,line_total,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,NOW())');
                     foreach($items as $item) {
-                        $insert->execute([$orderId,$item['product_id'],$item['name'],$item['sku'],$item['quantity'],$item['unit_price'],$item['tax_rate'],$item['subtotal'],$item['tax'],$item['total']]);
+                        $insert->execute([$orderId,$item['product_id'],$item['name'],$item['sku'],$item['quantity'],$item['unit_price'],$item['unit_cost'],$item['tax_rate'],$item['subtotal'],$item['tax'],$item['total']]);
                     }
                     if($discountTotal>0 && $campaign){
-                        $insert->execute([$orderId,null,'Kampanya indirimi: '.$couponCode,$couponCode,1,-$discountTotal,0,-$discountTotal,0,-$discountTotal]);
+                        $insert->execute([$orderId,null,'Kampanya indirimi: '.$couponCode,$couponCode,1,-$discountTotal,0,0,-$discountTotal,0,-$discountTotal]);
                         $pdo->prepare('INSERT INTO coupon_redemptions (campaign_id,order_id,customer_id,discount_amount,redeemed_at) VALUES (?,?,?,?,NOW())')->execute([(int)$campaign['id'],$orderId,$customerId?:null,$discountTotal]);
                         $pdo->prepare('UPDATE campaigns SET usage_count=usage_count+1 WHERE id=?')->execute([(int)$campaign['id']]);
                     }
