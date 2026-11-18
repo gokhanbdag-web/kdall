@@ -24,6 +24,7 @@ return [
             ['label' => 'nav.quotes', 'page' => 'quotes', 'permission' => 'quotes.view', 'icon' => 'file-check'],
             ['label' => 'nav.contracts', 'page' => 'contracts', 'permission' => 'contracts.view', 'icon' => 'file-signature'],
             ['label' => 'nav.hr', 'page' => 'employees', 'permission' => 'employees.view', 'icon' => 'user-round-cog'],
+            ['label' => 'nav.communications', 'page' => 'communications', 'permission' => 'communications.view', 'icon' => 'messages-square'],
             ['label' => 'nav.tasks', 'page' => 'tasks', 'permission' => 'tasks.view', 'icon' => 'list-checks']
         ]
     ],

@@ -20,6 +20,7 @@ return [
     'nav.quotes' => 'Teklifler',
     'nav.contracts' => 'Sözleşmeler',
     'nav.hr' => 'Personel & İK',
+    'nav.communications' => 'İletişim & Mesajlar',
     'nav.tasks' => 'Görevler',
     'nav.system' => 'SİSTEM',
     'nav.users' => 'Kullanıcılar & Yetkiler',

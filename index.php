@@ -101,6 +101,11 @@ if ($page === 'employees') {
     exit;
 }
 
+if ($page === 'communications') {
+    KodVadAll\Modules\Communications\CommunicationsController::handle($pdo, $admin);
+    exit;
+}
+
 if ($page === 'settings') {
     KodVadAll\Modules\Settings\SettingsController::handle($pdo);
     exit;
