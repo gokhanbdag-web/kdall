@@ -59,11 +59,25 @@ final class AccountingPostingService
    $receivable=self::account($db,'120');$revenue=self::account($db,'600');$vat=self::account($db,'391');$discountAccount=$discount>0?self::account($db,'610'):0;
    $lines=[[$receivable,$total,0,'Satış faturası alacağı'],[$revenue,0,$subtotal,'Satış geliri']];
    if($tax>0)$lines[]=[$vat,0,$tax,'Hesaplanan KDV'];if($discount>0)$lines[]=[$discountAccount,$discount,0,'Satış iskontosu'];
+   $costQuery=$db->prepare('SELECT COALESCE(SUM(ii.quantity*ii.unit_cost),0) FROM invoice_items ii JOIN products p ON p.id=ii.product_id WHERE ii.invoice_id=? AND p.track_stock=1');
+   $costQuery->execute([$invoiceId]);$cost=round((float)$costQuery->fetchColumn(),2);
+   if($cost>0){$lines[]=[self::account($db,'621'),$cost,0,'Satılan ürünlerin maliyeti'];$lines[]=[self::account($db,'153'),0,$cost,'Stok maliyet çıkışı'];}
   }elseif($i['invoice_type']==='purchase'){
    $inventory=self::account($db,'153');$vat=$tax>0?self::account($db,'191'):0;$payable=self::account($db,'320');
    $lines=[[$inventory,$subtotal,0,'Alış / stok maliyeti']];if($tax>0)$lines[]=[$vat,$tax,0,'İndirilecek KDV'];$lines[]=[$payable,0,$total,'Satıcı borcu'];
   }else{return;}
   self::journal($db,'invoice',$invoiceId,(string)$i['issue_date'],'Fatura '.$i['invoice_number'],$userId,$currency,$lines);
+ }
+ public static function postProductionOrder(PDO $db,int $orderId,int $userId=0):void
+ {
+  $q=$db->prepare("SELECT * FROM production_orders WHERE id=? AND status='completed' FOR UPDATE");$q->execute([$orderId]);$order=$q->fetch();
+  if(!$order)throw new RuntimeException('Muhasebeleştirilecek tamamlanmış üretim emri bulunamadı.');
+  $material=round((float)$order['material_cost'],2);$total=round((float)$order['total_cost'],2);$conversion=round($total-$material,2);
+  if($total<=0)return;
+  $inventory=self::account($db,'153');$lines=[[$inventory,$total,0,'Üretim mamul stok maliyeti']];
+  if($material>0)$lines[]=[$inventory,0,$material,'Üretimde tüketilen hammadde'];
+  if($conversion>0)$lines[]=[self::account($db,'730'),0,$conversion,'Üretim işçilik ve genel giderleri'];
+  self::journal($db,'production_order',$orderId,(string)$order['completed_at'],'Üretim maliyeti '.$order['order_number'],$userId,'TRY',$lines);
  }
  public static function reverseInvoice(PDO $db,int $invoiceId,int $userId=0):void
  {
