@@ -50,9 +50,12 @@ final class AccountingController
   $income=($byType['income']['credit']??0)-($byType['income']['debit']??0);
   $expense=($byType['expense']['debit']??0)-($byType['expense']['credit']??0);
   $netProfit=$income-$expense;
+  $cumulativePnl=$db->prepare("SELECT a.account_type,COALESCE(SUM(l.debit),0) debit,COALESCE(SUM(l.credit),0) credit FROM accounting_accounts a JOIN accounting_journal_lines l ON l.account_id=a.id JOIN accounting_journals j ON j.id=l.journal_id AND j.status='posted' WHERE a.is_active=1 AND a.account_type IN ('income','expense') AND j.journal_date<=? GROUP BY a.account_type");
+  $cumulativePnl->execute([$to]);$cumulative=[];foreach($cumulativePnl->fetchAll() as $row)$cumulative[$row['account_type']]=['debit'=>(float)$row['debit'],'credit'=>(float)$row['credit']];
+  $balanceNetProfit=(($cumulative['income']['credit']??0)-($cumulative['income']['debit']??0))-(($cumulative['expense']['debit']??0)-($cumulative['expense']['credit']??0));
   $totals=['asset'=>0.0,'liability'=>0.0,'equity'=>0.0,'income'=>$income,'expense'=>$expense];
   foreach(['asset','liability','equity'] as $type){$v=$byType[$type]??['debit'=>0,'credit'=>0];$totals[$type]=$type==='asset'?$v['debit']-$v['credit']:$v['credit']-$v['debit'];}
-  $totals['equity_with_profit']=$totals['equity']+$netProfit;
+  $totals['equity_with_profit']=$totals['equity']+$balanceNetProfit;
   $totals['balance_difference']=$totals['asset']-($totals['liability']+$totals['equity_with_profit']);
   if($report==='trial'){
    $q=$db->prepare("SELECT a.id,a.code,a.name,a.account_type,COALESCE(SUM(l.debit),0) debit,COALESCE(SUM(l.credit),0) credit FROM accounting_accounts a LEFT JOIN accounting_journal_lines l ON l.account_id=a.id LEFT JOIN accounting_journals j ON j.id=l.journal_id AND j.status='posted' AND j.journal_date<=? WHERE a.is_active=1 AND (l.id IS NULL OR j.id IS NOT NULL) GROUP BY a.id,a.code,a.name,a.account_type ORDER BY a.code");
