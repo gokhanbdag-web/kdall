@@ -34,3 +34,7 @@ jobs:
         run: php tests/customer_module_smoke.php
       - name: Run product inventory smoke tests
         run: php tests/product_module_smoke.php
+      - name: Run sales order smoke tests
+        run: php tests/order_module_smoke.php
+      - name: Check JavaScript syntax
+        run: node --check assets/admin.js && node --check assets/orders.js
