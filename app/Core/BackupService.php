@@ -6,7 +6,7 @@ use RuntimeException;
 use Throwable;
 final class BackupService
 {
- public static function create(PDO $db,int $userId):array
+ public static function create(PDO $db,?int $userId):array
  {
   $directory=KD_STORAGE.'/backups';
   if(!is_dir($directory)&&!mkdir($directory,0700,true)&&!is_dir($directory))throw new RuntimeException('Yedek klasörü oluşturulamadı.');
@@ -42,7 +42,7 @@ final class BackupService
    fwrite($handle,"SET FOREIGN_KEY_CHECKS=1;\n");
    $db->commit();fclose($handle);
    $size=(int)filesize($path);$hash=hash_file('sha256',$path);$relative='backups/'.$name;
-   $db->prepare("INSERT INTO system_backups (file_name,storage_path,size_bytes,sha256,table_count,status,created_by,created_at) VALUES (?,?,?,?,?,'complete',?,NOW())")->execute([$name,$relative,$size,$hash,$tables,$userId]);
+   $db->prepare("INSERT INTO system_backups (file_name,storage_path,size_bytes,sha256,table_count,status,created_by,created_at) VALUES (?,?,?,?,?,'complete',?,NOW())")->execute([$name,$relative,$size,$hash,$tables,($userId!==null&&$userId>0)?$userId:null]);
    return ['id'=>(int)$db->lastInsertId(),'file_name'=>$name,'size_bytes'=>$size,'sha256'=>$hash,'table_count'=>$tables];
   }catch(Throwable $e){
    if($db->inTransaction())$db->rollBack();
@@ -51,4 +51,18 @@ final class BackupService
    throw $e;
   }
  }
+ public static function runScheduled(PDO $db):?array
+ {
+  $rows=$db->query("SELECT setting_key,setting_value FROM settings WHERE setting_key IN ('backup_enabled','backup_frequency','backup_retention')")->fetchAll(PDO::FETCH_KEY_PAIR);
+  if(($rows['backup_enabled']??'0')!=='1')return null;
+  $frequency=in_array($rows['backup_frequency']??'daily',['daily','weekly'],true)?$rows['backup_frequency']:'daily';
+  $last=$db->query('SELECT MAX(created_at) FROM system_backups WHERE status=\'complete\'')->fetchColumn();
+  if($last){$threshold=$frequency==='daily'?strtotime('today'):time()-7*86400;if(strtotime((string)$last)>=$threshold)return null;}
+  $result=self::create($db,null);
+  $retention=max(3,min(50,(int)($rows['backup_retention']??10)));
+  $backups=$db->query('SELECT id,storage_path FROM system_backups ORDER BY id DESC')->fetchAll();
+  foreach(array_slice($backups,$retention) as $old){$base=realpath(KD_STORAGE.'/backups');$path=realpath(KD_STORAGE.'/'.$old['storage_path']);if($base&&$path&&str_starts_with($path,$base.DIRECTORY_SEPARATOR)&&is_file($path))@unlink($path);$db->prepare('DELETE FROM system_backups WHERE id=?')->execute([(int)$old['id']]);}
+  return $result;
+ }
+
 }
