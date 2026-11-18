@@ -1,0 +1,206 @@
+<?php
+declare(strict_types=1);
+
+namespace KodVadAll\Modules\Orders;
+
+use PDO;
+use RuntimeException;
+use Throwable;
+
+final class OrderController
+{
+    private const STATUSES = ['draft','confirmed','processing','shipped','completed','cancelled'];
+
+    public static function handle(PDO $pdo,array $admin): void
+    {
+        kd_require_permission('orders.view');
+        $action=(string)($_GET['action']??'list');
+        $id=max(0,(int)($_GET['id']??0));
+        $errors=[];
+
+        if ($_SERVER['REQUEST_METHOD']==='POST') {
+            kd_csrf_check();
+            kd_require_permission('orders.manage');
+            try {
+                $formAction=(string)($_POST['form_action']??'');
+                if ($formAction==='create') {
+                    $customerId=max(0,(int)($_POST['customer_id']??0));
+                    $productIds=is_array($_POST['product_id']??null)?$_POST['product_id']:[];
+                    $quantities=is_array($_POST['quantity']??null)?$_POST['quantity']:[];
+                    $prices=is_array($_POST['unit_price']??null)?$_POST['unit_price']:[];
+                    $taxes=is_array($_POST['tax_rate']??null)?$_POST['tax_rate']:[];
+                    $items=[];
+                    foreach ($productIds as $i=>$rawId) {
+                        $productId=(int)$rawId;
+                        $qty=(float)($quantities[$i]??0);
+                        if ($productId<1 && $qty<=0) continue;
+                        if ($productId<1 || $qty<=0) throw new RuntimeException('Ürün ve miktar bilgilerini kontrol edin.');
+                        $stmt=$pdo->prepare("SELECT id,name,sku,sale_price,status FROM products WHERE id=? LIMIT 1");
+                        $stmt->execute([$productId]);$product=$stmt->fetch();
+                        if (!$product || $product['status']!=='active') throw new RuntimeException('Seçilen ürün bulunamadı veya aktif değil.');
+                        $price=(float)($prices[$i]??$product['sale_price']);
+                        $tax=(float)($taxes[$i]??0);
+                        if ($price<0 || $tax<0 || $tax>100) throw new RuntimeException('Fiyat veya vergi oranı geçersiz.');
+                        $subtotal=round($qty*$price,2);
+                        $taxAmount=round($subtotal*$tax/100,2);
+                        $items[]=[
+                            'product_id'=>$productId,'name'=>$product['name'],'sku'=>$product['sku'],
+                            'quantity'=>$qty,'unit_price'=>$price,'tax_rate'=>$tax,
+                            'subtotal'=>$subtotal,'tax'=>$taxAmount,'total'=>$subtotal+$taxAmount
+                        ];
+                    }
+                    if (!$items) throw new RuntimeException('Siparişe en az bir ürün ekleyin.');
+                    if ($customerId>0) {
+                        $check=$pdo->prepare("SELECT id FROM customers WHERE id=? AND status='active'");
+                        $check->execute([$customerId]);
+                        if (!$check->fetchColumn()) throw new RuntimeException('Seçilen müşteri bulunamadı veya aktif değil.');
+                    }
+                    $subtotal=array_sum(array_column($items,'subtotal'));
+                    $taxTotal=array_sum(array_column($items,'tax'));
+                    $grand=$subtotal+$taxTotal;
+                    $pdo->beginTransaction();
+                    $temporaryNumber='TMP-'.bin2hex(random_bytes(10));
+                    $stmt=$pdo->prepare("INSERT INTO orders (order_number,customer_id,status,subtotal,tax_total,grand_total,currency,created_at) VALUES (?,?,'draft',?,?,?,'TRY',NOW())");
+                    $stmt->execute([$temporaryNumber,$customerId?:null,$subtotal,$taxTotal,$grand]);
+                    $orderId=(int)$pdo->lastInsertId();
+                    $number='SIP-'.date('Y').'-'.str_pad((string)$orderId,6,'0',STR_PAD_LEFT);
+                    $pdo->prepare('UPDATE orders SET order_number=? WHERE id=?')->execute([$number,$orderId]);
+                    $insert=$pdo->prepare('INSERT INTO order_items (order_id,product_id,product_name,sku,quantity,unit_price,tax_rate,line_subtotal,line_tax,line_total,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,NOW())');
+                    foreach($items as $item) {
+                        $insert->execute([$orderId,$item['product_id'],$item['name'],$item['sku'],$item['quantity'],$item['unit_price'],$item['tax_rate'],$item['subtotal'],$item['tax'],$item['total']]);
+                    }
+                    self::history($pdo,$orderId,(int)$admin['id'],null,'draft','Sipariş oluşturuldu');
+                    $pdo->commit();
+                    kd_audit('order.created','order',$orderId);
+                    self::redirect('view',$orderId);
+                } elseif ($formAction==='status') {
+                    $orderId=max(0,(int)($_POST['order_id']??0));
+                    $target=(string)($_POST['status']??'');
+                    $note=trim((string)($_POST['note']??''));
+                    if (!in_array($target,self::STATUSES,true)) throw new RuntimeException('Sipariş durumu geçersiz.');
+                    $pdo->beginTransaction();
+                    $lock=$pdo->prepare('SELECT * FROM orders WHERE id=? FOR UPDATE');
+                    $lock->execute([$orderId]);$order=$lock->fetch();
+                    if (!$order) throw new RuntimeException('Sipariş bulunamadı.');
+                    $from=(string)$order['status'];
+                    self::validateTransition($from,$target);
+                    if ($target==='confirmed' && $from==='draft') self::deductStock($pdo,$orderId,$number=(string)$order['order_number']);
+                    if ($target==='cancelled' && !empty($order['stock_deducted_at']) && empty($order['stock_reversed_at'])) self::restoreStock($pdo,$orderId,(string)$order['order_number']);
+                    $pdo->prepare('UPDATE orders SET status=?,stock_deducted_at=IF(?=?,NOW(),stock_deducted_at),stock_reversed_at=IF(?=? AND stock_deducted_at IS NOT NULL,NOW(),stock_reversed_at),updated_at=NOW() WHERE id=?')->execute([$target,$target,'confirmed',$target,'cancelled',$orderId]);
+                    self::history($pdo,$orderId,(int)$admin['id'],$from,$target,$note);
+                    $pdo->commit();
+                    kd_audit('order.status_changed','order',$orderId);
+                    self::redirect('view',$orderId);
+                }
+            } catch(Throwable $e) {
+                if($pdo->inTransaction()) $pdo->rollBack();
+                error_log('KodVadAll order module: '.$e->getMessage());
+                $errors[]=$e instanceof RuntimeException?$e->getMessage():'İşlem tamamlanamadı. Lütfen tekrar deneyin.';
+                $action=(string)($_GET['action']??'list');
+                $id=max(0,(int)($_GET['id']??0));
+            }
+        }
+
+        if($action==='create') {
+            kd_require_permission('orders.manage');
+            $customers=$pdo->query("SELECT id,name FROM customers WHERE status='active' ORDER BY name")->fetchAll();
+            $products=$pdo->query("SELECT id,name,sku,sale_price,stock_quantity,unit FROM products WHERE status='active' ORDER BY name")->fetchAll();
+            $pageTitle='Yeni sipariş';
+            ob_start();require KD_ROOT.'/app/Views/orders/form.php';$content=ob_get_clean();
+            require KD_ROOT.'/app/Views/layouts/admin.php';return;
+        }
+        if($action==='view') {
+            $stmt=$pdo->prepare('SELECT o.*,c.name AS customer_name FROM orders o LEFT JOIN customers c ON c.id=o.customer_id WHERE o.id=? LIMIT 1');
+            $stmt->execute([$id]);$order=$stmt->fetch();
+            if(!$order) self::notFound();
+            $stmt=$pdo->prepare('SELECT * FROM order_items WHERE order_id=? ORDER BY id');
+            $stmt->execute([$id]);$items=$stmt->fetchAll();
+            $stmt=$pdo->prepare('SELECT h.*,u.name AS user_name FROM order_status_history h LEFT JOIN users u ON u.id=h.user_id WHERE h.order_id=? ORDER BY h.id DESC');
+            $stmt->execute([$id]);$history=$stmt->fetchAll();
+            $pageTitle='Sipariş '.$order['order_number'];
+            ob_start();require KD_ROOT.'/app/Views/orders/detail.php';$content=ob_get_clean();
+            require KD_ROOT.'/app/Views/layouts/admin.php';return;
+        }
+        if($action!=='list') self::notFound();
+
+        $q=trim((string)($_GET['q']??''));
+        $status=in_array($_GET['status']??'',self::STATUSES,true)?(string)$_GET['status']:'';
+        $page=max(1,(int)($_GET['p']??1));$limit=20;
+        $where=[];$params=[];
+        if($q!=='') {$where[]='(o.order_number LIKE ? OR c.name LIKE ?)';$like='%'.$q.'%';$params[]=$like;$params[]=$like;}
+        if($status!=='') {$where[]='o.status=?';$params[]=$status;}
+        $whereSql=$where?' WHERE '.implode(' AND ',$where):'';
+        $count=$pdo->prepare('SELECT COUNT(*) FROM orders o LEFT JOIN customers c ON c.id=o.customer_id'.$whereSql);$count->execute($params);
+        $total=(int)$count->fetchColumn();$pages=max(1,(int)ceil($total/$limit));$page=min($page,$pages);$offset=($page-1)*$limit;
+        $stmt=$pdo->prepare('SELECT o.*,c.name AS customer_name FROM orders o LEFT JOIN customers c ON c.id=o.customer_id'.$whereSql.' ORDER BY o.id DESC LIMIT '.$limit.' OFFSET '.$offset);
+        $stmt->execute($params);$orders=$stmt->fetchAll();
+        $pageTitle='Satış & Siparişler';
+        ob_start();require KD_ROOT.'/app/Views/orders/list.php';$content=ob_get_clean();
+        require KD_ROOT.'/app/Views/layouts/admin.php';
+    }
+
+    private static function validateTransition(string $from,string $to): void
+    {
+        $allowed=[
+            'draft'=>['confirmed','cancelled'],
+            'confirmed'=>['processing','cancelled'],
+            'processing'=>['shipped','cancelled'],
+            'shipped'=>['completed'],
+            'completed'=>[],
+            'cancelled'=>[]
+        ];
+        if(!in_array($to,$allowed[$from]??[],true)) throw new RuntimeException('Bu sipariş durum geçişine izin verilmiyor.');
+    }
+
+    private static function deductStock(PDO $pdo,int $orderId,string $number): void
+    {
+        $items=$pdo->prepare('SELECT product_id,quantity,product_name FROM order_items WHERE order_id=?');
+        $items->execute([$orderId]);
+        foreach($items->fetchAll() as $item) {
+            if(!$item['product_id']) continue;
+            $lock=$pdo->prepare('SELECT stock_quantity,track_stock FROM products WHERE id=? FOR UPDATE');
+            $lock->execute([(int)$item['product_id']]);$product=$lock->fetch();
+            if(!$product || !(int)$product['track_stock']) continue;
+            $before=(float)$product['stock_quantity'];$qty=(float)$item['quantity'];$after=$before-$qty;
+            if($after<0) throw new RuntimeException('Yetersiz stok: '.$item['product_name']);
+            $pdo->prepare('UPDATE products SET stock_quantity=?,updated_at=NOW() WHERE id=?')->execute([$after,(int)$item['product_id']]);
+            $move=$pdo->prepare("INSERT INTO product_stock_movements (product_id,user_id,movement_type,quantity,before_quantity,after_quantity,note,reference_type,reference_id,created_at) VALUES (?,?,'out',?,?,?,?,?,?,NOW())");
+            $move->execute([(int)$item['product_id'],(int)($_SESSION['user']['id']??0),$qty,$before,$after,'Sipariş '.$number,'order',$orderId]);
+        }
+    }
+
+    private static function restoreStock(PDO $pdo,int $orderId,string $number): void
+    {
+        $items=$pdo->prepare('SELECT product_id,quantity,product_name FROM order_items WHERE order_id=?');
+        $items->execute([$orderId]);
+        foreach($items->fetchAll() as $item) {
+            if(!$item['product_id']) continue;
+            $lock=$pdo->prepare('SELECT stock_quantity FROM products WHERE id=? FOR UPDATE');
+            $lock->execute([(int)$item['product_id']]);$product=$lock->fetch();
+            if(!$product) continue;
+            $before=(float)$product['stock_quantity'];$qty=(float)$item['quantity'];$after=$before+$qty;
+            $pdo->prepare('UPDATE products SET stock_quantity=?,updated_at=NOW() WHERE id=?')->execute([$after,(int)$item['product_id']]);
+            $move=$pdo->prepare("INSERT INTO product_stock_movements (product_id,user_id,movement_type,quantity,before_quantity,after_quantity,note,reference_type,reference_id,created_at) VALUES (?,?,'in',?,?,?,?,?,?,NOW())");
+            $move->execute([(int)$item['product_id'],(int)($_SESSION['user']['id']??0),$qty,$before,$after,'İptal edilen sipariş '.$number,'order',$orderId]);
+        }
+    }
+
+    private static function history(PDO $pdo,int $orderId,int $userId,?string $from,string $to,string $note): void
+    {
+        $stmt=$pdo->prepare('INSERT INTO order_status_history (order_id,user_id,from_status,to_status,note,created_at) VALUES (?,?,?,?,?,NOW())');
+        $stmt->execute([$orderId,$userId,$from,$to,$note?:null]);
+    }
+
+    private static function redirect(string $action,int $id=0): never
+    {
+        $url='index.php?page=orders';
+        if($action!=='list') $url.='&action='.rawurlencode($action);
+        if($id>0) $url.='&id='.$id;
+        header('Location: '.$url,true,303);exit;
+    }
+
+    private static function notFound(): never
+    {
+        http_response_code(404);exit('Sipariş bulunamadı.');
+    }
+}
