@@ -22,6 +22,22 @@ if (!$productItem || !empty($productItem['coming'])) {
     exit(1);
 }
 
+
+$controller = file_get_contents(dirname(__DIR__) . '/app/Modules/Products/ProductController.php');
+$view = file_get_contents(dirname(__DIR__) . '/app/Views/products/list.php');
+foreach (['stock_status','stock_value','low_stock_count','out_of_stock_count'] as $needle) {
+    if ($controller === false || strpos($controller, $needle) === false) {
+        fwrite(STDERR, "Inventory reporting controller missing {$needle}.\\n");
+        exit(1);
+    }
+}
+foreach (['Stok değeri','Kritik stok','Stoksuz','stock_status'] as $needle) {
+    if ($view === false || strpos($view, $needle) === false) {
+        fwrite(STDERR, "Inventory reporting view missing {$needle}.\\n");
+        exit(1);
+    }
+}
+
 $migration = file_get_contents(dirname(__DIR__) . '/database/migrations/003_product_inventory.sql');
 foreach (['product_categories','product_stock_movements','min_stock','barcode'] as $required) {
     if ($migration === false || strpos($migration, $required) === false) {
