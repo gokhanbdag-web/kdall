@@ -58,4 +58,12 @@ return [
     'products.stock_out' => 'Stok çıkışı',
     'products.stock_adjustment' => 'Stok düzeltmesi',
     'products.low_stock' => 'Kritik stok',
+    'orders.title' => 'Satış & Siparişler',
+    'orders.new' => 'Yeni sipariş',
+    'orders.draft' => 'Taslak',
+    'orders.confirmed' => 'Onaylandı',
+    'orders.processing' => 'Hazırlanıyor',
+    'orders.shipped' => 'Kargolandı',
+    'orders.completed' => 'Tamamlandı',
+    'orders.cancelled' => 'İptal',
 ];
