@@ -26,12 +26,12 @@ final class AccountingController
   $totals['equity_with_profit']=$totals['equity']+$netProfit;
   $totals['balance_difference']=$totals['asset']-($totals['liability']+$totals['equity_with_profit']);
   if($report==='trial'){
-   $q=$db->prepare("SELECT a.id,a.code,a.name,a.account_type,COALESCE(SUM(l.debit),0) debit,COALESCE(SUM(l.credit),0) credit FROM accounting_accounts a LEFT JOIN accounting_journal_lines l ON l.account_id=a.id LEFT JOIN accounting_journals j ON j.id=l.journal_id AND j.status='posted' AND j.journal_date BETWEEN ? AND ? WHERE a.is_active=1 GROUP BY a.id,a.code,a.name,a.account_type ORDER BY a.code");
+   $q=$db->prepare("SELECT a.id,a.code,a.name,a.account_type,COALESCE(SUM(CASE WHEN j.id IS NOT NULL THEN l.debit ELSE 0 END),0) debit,COALESCE(SUM(CASE WHEN j.id IS NOT NULL THEN l.credit ELSE 0 END),0) credit FROM accounting_accounts a LEFT JOIN accounting_journal_lines l ON l.account_id=a.id LEFT JOIN accounting_journals j ON j.id=l.journal_id AND j.status='posted' AND j.journal_date BETWEEN ? AND ? WHERE a.is_active=1 GROUP BY a.id,a.code,a.name,a.account_type ORDER BY a.code");
    $q->execute([$from,$to]);$trial=$q->fetchAll();
   }
   if($report==='balance'||$report==='profit'){
    $types=$report==='balance'?['asset','liability','equity']:['income','expense'];
-   foreach($types as $type){$q=$db->prepare("SELECT a.id,a.code,a.name,COALESCE(SUM(l.debit),0) debit,COALESCE(SUM(l.credit),0) credit FROM accounting_accounts a LEFT JOIN accounting_journal_lines l ON l.account_id=a.id LEFT JOIN accounting_journals j ON j.id=l.journal_id AND j.status='posted' AND j.journal_date BETWEEN ? AND ? WHERE a.is_active=1 AND a.account_type=? GROUP BY a.id,a.code,a.name ORDER BY a.code");$q->execute([$from,$to,$type]);$statement[$type]=$q->fetchAll();}
+   foreach($types as $type){$q=$db->prepare("SELECT a.id,a.code,a.name,COALESCE(SUM(CASE WHEN j.id IS NOT NULL THEN l.debit ELSE 0 END),0) debit,COALESCE(SUM(CASE WHEN j.id IS NOT NULL THEN l.credit ELSE 0 END),0) credit FROM accounting_accounts a LEFT JOIN accounting_journal_lines l ON l.account_id=a.id LEFT JOIN accounting_journals j ON j.id=l.journal_id AND j.status='posted' AND j.journal_date BETWEEN ? AND ? WHERE a.is_active=1 AND a.account_type=? GROUP BY a.id,a.code,a.name ORDER BY a.code");$q->execute([$from,$to,$type]);$statement[$type]=$q->fetchAll();}
   }
   if($report==='ledger'){
    if($accountId<1)throw new RuntimeException('Hesap ekstresi için hesap seçin.');
