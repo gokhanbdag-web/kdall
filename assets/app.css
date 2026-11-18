@@ -388,3 +388,10 @@ input[type=date],input[type=datetime-local],input[type=time],input[type=month]{-
 .shipping-label{border:1px dashed var(--line);padding:24px;max-width:620px}
 .shipping-label .shipment-code{font-size:24px;letter-spacing:.08em;font-weight:800}
 @media print{.shipping-label{border:1px solid #999!important;padding:16px!important}}
+
+/* Returns and refund workflows */
+.return-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.return-summary>div{padding:12px;border:1px solid var(--line);border-radius:10px}
+.return-summary small{display:block;color:var(--muted);font-size:10px}
+.return-summary strong{display:block;margin-top:5px;font-size:17px}
+@media(max-width:600px){.return-summary{grid-template-columns:1fr}}

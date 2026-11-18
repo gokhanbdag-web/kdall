@@ -52,5 +52,7 @@ jobs:
         run: php tests/marketplace_module_smoke.php
       - name: Run shipping module smoke tests
         run: php tests/shipping_module_smoke.php
+      - name: Run returns module smoke tests
+        run: php tests/returns_module_smoke.php
       - name: Check JavaScript syntax
         run: node --check assets/admin.js && node --check assets/orders.js

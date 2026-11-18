@@ -86,6 +86,11 @@ if ($page === 'shipping') {
     exit;
 }
 
+if ($page === 'returns') {
+    KodVadAll\Modules\Returns\ReturnController::handle($pdo, $admin);
+    exit;
+}
+
 if ($page === 'settings') {
     KodVadAll\Modules\Settings\SettingsController::handle($pdo);
     exit;

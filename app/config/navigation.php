@@ -20,6 +20,7 @@ return [
             ['label' => 'nav.invoices', 'page' => 'invoices', 'permission' => 'invoices.view', 'icon' => 'file-text'],
             ['label' => 'nav.marketplaces', 'page' => 'marketplaces', 'permission' => 'marketplaces.view', 'icon' => 'store'],
             ['label' => 'nav.shipping', 'page' => 'shipping', 'permission' => 'shipments.view', 'icon' => 'truck'],
+            ['label' => 'nav.returns', 'page' => 'returns', 'permission' => 'returns.view', 'icon' => 'rotate-ccw'],
             ['label' => 'nav.tasks', 'page' => 'tasks', 'permission' => 'tasks.view', 'icon' => 'list-checks']
         ]
     ],

@@ -16,6 +16,7 @@ return [
     'nav.invoices' => 'Faturalandırma',
     'nav.marketplaces' => 'Pazaryeri Entegrasyonları',
     'nav.shipping' => 'Kargo & Lojistik',
+    'nav.returns' => 'İade & Değişim',
     'nav.tasks' => 'Görevler',
     'nav.system' => 'SİSTEM',
     'nav.users' => 'Kullanıcılar & Yetkiler',
