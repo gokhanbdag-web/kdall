@@ -22,7 +22,7 @@ final class WarehousesController
                     $pdo->beginTransaction();$q=$pdo->prepare("SELECT id FROM warehouses WHERE id=? AND status='active' FOR UPDATE");$q->execute([$warehouseId]);if(!$q->fetchColumn())throw new RuntimeException('Aktif depo seçin.');
                     $tmp='TMP-STK-'.bin2hex(random_bytes(6));$pdo->prepare("INSERT INTO warehouse_stocktakes(stocktake_number,warehouse_id,status,notes,created_by,created_at) VALUES(?,?,'draft',?,?,NOW())")->execute([$tmp,$warehouseId,$note?:null,(int)$admin['id']]);$stocktakeId=(int)$pdo->lastInsertId();$number='SAY-'.date('Y').'-'.str_pad((string)$stocktakeId,6,'0',STR_PAD_LEFT);$pdo->prepare('UPDATE warehouse_stocktakes SET stocktake_number=? WHERE id=?')->execute([$number,$stocktakeId]);
                     $pdo->prepare('INSERT INTO warehouse_stocktake_items(stocktake_id,product_id,expected_quantity) SELECT ?,p.id,COALESCE(s.quantity,0) FROM products p LEFT JOIN product_warehouse_stocks s ON s.product_id=p.id AND s.warehouse_id=? WHERE p.status=\'active\' AND p.track_stock=1 ORDER BY p.id')->execute([$stocktakeId,$warehouseId]);
-                    $pdo->commit();kd_audit('warehouse.stocktake_created','warehouse_stocktake',$stocktakeId);self::go('stocktake&id='.$stocktakeId);
+                    $pdo->commit();kd_audit('warehouse.stocktake_created','warehouse_stocktake',$stocktakeId);self::go('stocktake',$stocktakeId);
                 }
                 if($form==='save_stocktake'){
                     $stocktakeId=max(0,(int)($_POST['stocktake_id']??0));$counts=is_array($_POST['counted_qty']??null)?$_POST['counted_qty']:[];
@@ -120,5 +120,5 @@ final class WarehousesController
         $warehouses=$pdo->query("SELECT w.*,COUNT(DISTINCT s.product_id) product_count,COALESCE(SUM(s.quantity),0) total_quantity,COALESCE(SUM(s.quantity*p.purchase_price),0) stock_value FROM warehouses w LEFT JOIN product_warehouse_stocks s ON s.warehouse_id=w.id LEFT JOIN products p ON p.id=s.product_id GROUP BY w.id ORDER BY w.is_default DESC,w.name")->fetchAll();
         $pageTitle='Depo Yönetimi';ob_start();require KD_ROOT.'/app/Views/warehouses/index.php';$content=ob_get_clean();require KD_ROOT.'/app/Views/layouts/admin.php';
     }
-    private static function go(string $action='list'):never{header('Location: index.php?page=warehouses'.($action==='list'?'':'&action='.rawurlencode($action)),true,303);exit;}
+    private static function go(string $action='list',int $id=0):never{$url='index.php?page=warehouses'.($action==='list'?'':'&action='.rawurlencode($action));if($id>0)$url.='&id='.$id;header('Location: '.$url,true,303);exit;}
 }
