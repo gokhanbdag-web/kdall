@@ -22,7 +22,7 @@ final class AccountingController
     }
     if($form==='journal'){
      $date=(string)($_POST['journal_date']??date('Y-m-d'));$currency=strtoupper((string)($_POST['currency']??'TRY'));$description=trim((string)($_POST['description']??''));$ids=is_array($_POST['account_id']??null)?$_POST['account_id']:[];$debits=is_array($_POST['debit']??null)?$_POST['debit']:[];$credits=is_array($_POST['credit']??null)?$_POST['credit']:[];
-     if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$date)||$description==='')throw new RuntimeException('Fiş tarihi ve açıklaması zorunludur.');
+     if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$date)||!in_array($currency,['TRY','USD','EUR','GBP'],true)||$description==='')throw new RuntimeException('Fiş tarihi ve açıklaması zorunludur.');
      $lines=[];$totalDebit=0.0;$totalCredit=0.0;
      foreach($ids as $i=>$accountId){$accountId=(int)$accountId;$debit=round((float)($debits[$i]??0),2);$credit=round((float)($credits[$i]??0),2);if($accountId<1||$debit<0||$credit<0||($debit>0&&$credit>0)||($debit==0&&$credit==0))continue;$lines[]=[$accountId,$debit,$credit];$totalDebit+=$debit;$totalCredit+=$credit;}
      if(count($lines)<2||abs($totalDebit-$totalCredit)>0.009||$totalDebit<=0)throw new RuntimeException('En az iki satır girilmeli; borç ve alacak toplamları eşit olmalıdır.');
