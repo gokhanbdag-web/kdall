@@ -9,7 +9,7 @@ $pageTitle = $pageTitle ?? kd_t('dashboard.title');
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="theme-color" content="#f7f8fc">
     <title><?= kd_e($pageTitle) ?> · KodVadAll</title>
-    <link rel="stylesheet" href="assets/app.css">
+    <link rel="stylesheet" href="assets/app.css?v=20261118-1">
 </head>
 <body class="admin-app">
 <div class="app-shell">
