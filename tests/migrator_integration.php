@@ -44,6 +44,30 @@ try {
     sort($files, SORT_STRING);
     $expected = array_map('basename', $files);
 
+    // Apply migrations through 039 first, then create a legacy purchase order
+    // so migration 040 can prove that existing purchases are backfilled.
+    $beforePurchaseWarehouse = sys_get_temp_dir() . '/kdall-migrations-pre-040-' . bin2hex(random_bytes(5));
+    if (!mkdir($beforePurchaseWarehouse, 0700, true)) {
+        throw new RuntimeException('Could not create temporary migration directory.');
+    }
+    foreach ($files as $file) {
+        if (strcmp(basename($file), '040_purchase_order_warehouse.sql') >= 0) {
+            continue;
+        }
+        if (!copy($file, $beforePurchaseWarehouse . '/' . basename($file))) {
+            throw new RuntimeException('Could not stage migration: ' . basename($file));
+        }
+    }
+    Migrator::run($pdo, $beforePurchaseWarehouse);
+    foreach (glob($beforePurchaseWarehouse . '/*') ?: [] as $stagedFile) {
+        unlink($stagedFile);
+    }
+    rmdir($beforePurchaseWarehouse);
+
+    $pdo->prepare("INSERT INTO suppliers (name,created_at) VALUES (?,NOW())")->execute(['MIGRATION-TEST-SUPPLIER']);
+    $supplierId = (int)$pdo->lastInsertId();
+    $pdo->prepare("INSERT INTO purchase_orders (purchase_number,supplier_id,status,subtotal,tax_total,grand_total,created_at) VALUES (?,?,'draft',0,0,0,NOW())")->execute(['MIGRATION-TEST-PO', $supplierId]);
+
     Migrator::run($pdo, $directory);
     $applied = $pdo->query('SELECT migration FROM schema_migrations ORDER BY migration')->fetchAll(PDO::FETCH_COLUMN);
     if ($applied !== $expected) {
@@ -61,6 +85,18 @@ try {
     $legacyOrder->execute(['MIGRATION-TEST-ORDER']);
     if ((int)$legacyOrder->fetchColumn() !== 1) {
         throw new RuntimeException('Existing sales orders were not backfilled to the default warehouse.');
+    }
+
+    $purchaseCurrency = $pdo->prepare('SELECT currency FROM purchase_orders WHERE purchase_number=?');
+    $purchaseCurrency->execute(['MIGRATION-TEST-PO']);
+    if ($purchaseCurrency->fetchColumn() !== 'TRY') {
+        throw new RuntimeException('Purchase currency default required by reports is missing.');
+    }
+
+    $legacyPurchase = $pdo->prepare('SELECT w.is_default FROM purchase_orders p LEFT JOIN warehouses w ON w.id=p.warehouse_id WHERE p.purchase_number=?');
+    $legacyPurchase->execute(['MIGRATION-TEST-PO']);
+    if ((int)$legacyPurchase->fetchColumn() !== 1) {
+        throw new RuntimeException('Existing purchase orders were not backfilled to the default warehouse.');
     }
 
     foreach (['payment_transactions', 'accounting_journals', 'warehouse_stocktakes'] as $table) {
