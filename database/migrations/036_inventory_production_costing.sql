@@ -17,10 +17,5 @@ ALTER TABLE production_order_materials
  ADD COLUMN line_cost DECIMAL(15,2) NOT NULL DEFAULT 0 AFTER unit_cost;
 
 INSERT IGNORE INTO accounting_accounts(code,name,account_type,is_active,created_at) VALUES
-('730','Genel Üretim Giderleri','expense',1,NOW());
+('335','Personele Borçlar','liability',1,NOW());
 
-INSERT IGNORE INTO permissions (permission_key,name,module,created_at) VALUES
-('production.cost.view','Üretim maliyetlerini görüntüle','production',NOW());
-INSERT IGNORE INTO role_permissions (role_id,permission_id,created_at)
-SELECT r.id,p.id,NOW() FROM roles r CROSS JOIN permissions p
-WHERE r.slug IN ('owner','admin','manager') AND p.permission_key='production.cost.view';
