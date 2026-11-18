@@ -14,4 +14,10 @@ foreach(['weightedCost','incomingCost','purchase_price','received_quantity'] as 
 
 foreach(['suppliers','purchase_orders','purchase_order_items','purchase_receipts','purchase_receipt_items','purchases.manage'] as $needle){if($sql===false||strpos($sql,$needle)===false){fwrite(STDERR,"Purchasing migration missing {$needle}.\\n");exit(1);}}
 $nav=require dirname(__DIR__).'/app/config/navigation.php';$found=[];foreach($nav as $g)foreach($g['items'] as $i)$found[]=$i['page'];foreach(['suppliers','purchases'] as $p)if(!in_array($p,$found,true)){fwrite(STDERR,"Navigation missing {$p}.\\n");exit(1);}
+$purchaseMigration=file_get_contents(dirname(__DIR__).'/database/migrations/040_purchase_order_warehouse.sql');
+$purchaseController=file_get_contents(dirname(__DIR__).'/app/Modules/Purchasing/PurchasingController.php');
+$purchaseView=file_get_contents(dirname(__DIR__).'/app/Views/purchasing/index.php');
+foreach(['ADD COLUMN warehouse_id','fk_purchase_order_warehouse'] as $needle){if($purchaseMigration===false||strpos($purchaseMigration,$needle)===false){fwrite(STDERR,"Purchase warehouse migration missing {$needle}.\\n");exit(1);}}
+foreach(['warehouse_id','warehouse_name','warehouseAfter','totalStock'] as $needle){if($purchaseController===false||strpos($purchaseController,$needle)===false){fwrite(STDERR,"Purchase warehouse routing missing {$needle}.\\n");exit(1);}}
+if($purchaseView===false||strpos($purchaseView,'name="warehouse_id"')===false||strpos($purchaseView,'warehouse_name')===false){fwrite(STDERR,"Purchase warehouse selection/detail UI missing.\\n");exit(1);}
 echo "KodVadAll purchasing module smoke tests passed.\\n";
