@@ -133,6 +133,13 @@ final class AccountingPostingService
   $cash=self::account($db,$t['account_type']==='bank'?'102':'100');$lines=[];if($netPart>0)$lines[]=[self::account($db,'610'),$netPart,0,'Satış iadesi'];if($taxPart>0)$lines[]=[self::account($db,'391'),$taxPart,0,'İade edilen satış KDV'];$lines[]=[$cash,0,$amount,'Müşteriye iade ödemesi'];
   self::journal($db,'sales_return_refund',$transactionId,(string)$t['transaction_date'],'Müşteri iadesi '.$r['return_number'],$userId,(string)$t['currency'],$lines);
  }
+ public static function postServiceParts(PDO $db,int $jobId,int $userId=0):void
+ {
+  $q=$db->prepare("SELECT * FROM service_jobs WHERE id=? AND status='delivered' AND stock_deducted_at IS NOT NULL FOR UPDATE");$q->execute([$jobId]);$job=$q->fetch();
+  if(!$job)throw new RuntimeException('Muhasebeleştirilecek teslim edilmiş servis kaydı bulunamadı.');
+  $q=$db->prepare('SELECT COALESCE(SUM(sp.quantity*sp.unit_cost),0) FROM service_job_parts sp JOIN products p ON p.id=sp.product_id WHERE sp.service_job_id=? AND p.track_stock=1');$q->execute([$jobId]);$cost=round((float)$q->fetchColumn(),2);if($cost<=0)return;
+  self::journal($db,'service_parts',$jobId,substr((string)$job['delivered_at'],0,10),'Servis parça tüketimi '.$job['service_number'],$userId,'TRY',[[self::account($db,'621'),$cost,0,'Serviste tüketilen yedek parçalar'],[self::account($db,'153'),0,$cost,'Servis deposu stok çıkışı']]);
+ }
  public static function postStocktake(PDO $db,int $stocktakeId,int $userId=0):void
  {
   $q=$db->prepare("SELECT * FROM warehouse_stocktakes WHERE id=? AND status='completed' FOR UPDATE");$q->execute([$stocktakeId]);$stocktake=$q->fetch();
