@@ -24,12 +24,15 @@ final class WarehousesController
                     $q=$pdo->prepare("INSERT INTO warehouses(code,name,address,status,is_default,created_at) VALUES(?,?,?,'active',0,NOW())");
                     $q->execute([$code,$name,$address?:null]);$id=(int)$pdo->lastInsertId();kd_audit('warehouse.created','warehouse',$id);self::go();
                 }
+                if($form==='set_default'){
+                    $id=max(0,(int)($_POST['warehouse_id']??0));$pdo->beginTransaction();$q=$pdo->prepare("SELECT id FROM warehouses WHERE id=? AND status='active' FOR UPDATE");$q->execute([$id]);if(!$q->fetchColumn())throw new RuntimeException('Aktif depo seçin.');$pdo->exec('UPDATE warehouses SET is_default=0');$pdo->prepare('UPDATE warehouses SET is_default=1,updated_at=NOW() WHERE id=?')->execute([$id]);$pdo->commit();kd_audit('warehouse.default_changed','warehouse',$id);self::go();
+                }
                 if($form==='archive'){
                     $id=max(0,(int)($_POST['warehouse_id']??0));$pdo->beginTransaction();
                     $q=$pdo->prepare('SELECT id,is_default FROM warehouses WHERE id=? FOR UPDATE');$q->execute([$id]);$w=$q->fetch();
                     if(!$w)throw new RuntimeException('Depo bulunamadı.');
                     if((int)$w['is_default']===1)throw new RuntimeException('Varsayılan depo pasife alınamaz.');
-                    $q=$pdo->prepare('SELECT COALESCE(SUM(quantity),0) FROM product_warehouse_stocks WHERE warehouse_id=?');$q->execute([$id]);
+                    $q=$pdo->prepare('SELECT COALESCE(SUM(ABS(quantity)),0) FROM product_warehouse_stocks WHERE warehouse_id=?');$q->execute([$id]);
                     if((float)$q->fetchColumn()>0)throw new RuntimeException('Stoğu bulunan depo pasife alınamaz. Önce stokları başka depoya transfer edin.');
                     $pdo->prepare("UPDATE warehouses SET status='inactive',updated_at=NOW() WHERE id=?")->execute([$id]);$pdo->commit();kd_audit('warehouse.archived','warehouse',$id);self::go();
                 }
