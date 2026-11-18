@@ -12,6 +12,19 @@ permissions:
 jobs:
   php-checks:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: kdall_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
     strategy:
       fail-fast: false
       matrix:
@@ -22,12 +35,21 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
+          extensions: pdo_mysql
           coverage: none
       - name: Lint PHP files
         run: |
           find . -type f -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
       - name: Run core smoke tests
         run: php tests/smoke.php
+      - name: Run MySQL migration integration tests
+        env:
+          KD_TEST_DB_HOST: 127.0.0.1
+          KD_TEST_DB_PORT: 3306
+          KD_TEST_DB_NAME: kdall_test
+          KD_TEST_DB_USER: root
+          KD_TEST_DB_PASS: root
+        run: php tests/migrator_integration.php
       - name: Run admin shell smoke tests
         run: php tests/admin_shell_smoke.php
       - name: Run CRM customer smoke tests
