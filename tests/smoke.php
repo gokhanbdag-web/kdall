@@ -26,4 +26,9 @@ if (strlen(kd_csrf_token()) !== 64) {
     exit(1);
 }
 
+$migratorSource=file_get_contents(dirname(__DIR__).'/app/Core/Migrator.php');
+$fastPath=strpos((string)$migratorSource,'if ($applied === $names)');
+$lockPosition=strpos((string)$migratorSource,"GET_LOCK('kodvadall_migrations', 10)");
+if($fastPath===false||$lockPosition===false||$fastPath>$lockPosition){fwrite(STDERR,"Migration fast path must run before acquiring the advisory lock.\n");exit(1);}
+
 echo "KodVadAll core smoke tests passed.\n";
