@@ -9,30 +9,58 @@ if (!is_file(KD_STORAGE . '/installed.php')) {
 
 $pdo = kd_db();
 $admin = $_SESSION['user'] ?? null;
+
+if (isset($_GET['logout'])) {
+    if ($admin) {
+        \KodVadAll\Core\SecurityService::revokeCurrentSession($pdo, (int)$admin['id']);
+    }
+    $_SESSION = [];
+    if (ini_get('session.use_cookies')) {
+        $params = session_get_cookie_params();
+        setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+    }
+    session_destroy();
+    header('Location: index.php', true, 303);
+    exit;
+}
+
 if (!$admin) {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         kd_csrf_check();
         $email = trim((string)($_POST['email'] ?? ''));
         $password = (string)($_POST['password'] ?? '');
-        $stmt = $pdo->prepare('SELECT id,name,email,password_hash,role FROM users WHERE email = ? AND status = ? LIMIT 1');
-        $stmt->execute([$email, 'active']);
-        $user = $stmt->fetch();
-        if ($user && password_verify($password, $user['password_hash'])) {
-            session_regenerate_id(true);
-            unset($user['password_hash']);
-            $_SESSION['user'] = $user;
-            $loginUpdate = $pdo->prepare('UPDATE users SET last_login_at = NOW() WHERE id = ?');
-            $loginUpdate->execute([(int)$user['id']]);
-            kd_audit('auth.login', 'user', (int)$user['id']);
-            header('Location: index.php');
-            exit;
+        $ip = (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+        if (\KodVadAll\Core\SecurityService::lockedOut($pdo, $email, $ip)) {
+            \KodVadAll\Core\SecurityService::recordAttempt($pdo, $email, $ip, false);
+            \KodVadAll\Core\SecurityService::log($pdo, null, 'auth.lockout', 'warning', 'Giriş denemesi geçici olarak engellendi.');
+            $error = 'Çok fazla başarısız giriş denemesi. 15 dakika sonra tekrar deneyin.';
+        } else {
+            $stmt = $pdo->prepare('SELECT id,name,email,password_hash,role FROM users WHERE email = ? AND status = ? LIMIT 1');
+            $stmt->execute([$email, 'active']);
+            $user = $stmt->fetch();
+            if ($user && password_verify($password, $user['password_hash'])) {
+                \KodVadAll\Core\SecurityService::recordAttempt($pdo, $email, $ip, true);
+                session_regenerate_id(true);
+                unset($user['password_hash']);
+                $_SESSION['user'] = $user;
+                \KodVadAll\Core\SecurityService::createSession($pdo, (int)$user['id']);
+                $pdo->prepare('UPDATE users SET last_login_at = NOW() WHERE id = ?')->execute([(int)$user['id']]);
+                \KodVadAll\Core\SecurityService::log($pdo, (int)$user['id'], 'auth.login', 'info', 'Başarılı yönetici girişi.');
+                kd_audit('auth.login', 'user', (int)$user['id']);
+                header('Location: index.php');
+                exit;
+            }
+            \KodVadAll\Core\SecurityService::recordAttempt($pdo, $email, $ip, false);
+            \KodVadAll\Core\SecurityService::log($pdo, null, 'auth.login_failed', 'warning', 'Başarısız yönetici giriş denemesi.');
+            kd_audit('auth.login_failed', 'auth');
+            $error = 'E-posta veya parola hatalı.';
         }
-        kd_audit('auth.login_failed', 'auth');
-        $error = 'E-posta veya parola hatalı.';
     }
     ?><!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>KodVadAll · Giriş</title><link rel="stylesheet" href="assets/app.css?v=20261118-2"></head><body class="auth"><main class="auth-card"><div class="brand-mark">K</div><p class="eyebrow">İŞLETME YÖNETİM PLATFORMU</p><h1>Tekrar hoş geldiniz</h1><p class="muted">Yönetim panelinize güvenli giriş yapın.</p><?php if (!empty($error)): ?><div class="alert"><?= kd_e($error) ?></div><?php endif; ?><form method="post"><?= kd_csrf_field() ?><label>E-posta<input type="email" name="email" required autocomplete="username"></label><label>Parola<input type="password" name="password" required autocomplete="current-password"></label><button class="btn primary full">Giriş yap</button></form></main></body></html><?php
     exit;
 }
+
+\KodVadAll\Core\SecurityService::ensureSession($pdo, (int)$admin['id']);
 
 $page = (string)($_GET['page'] ?? 'dashboard');
 
@@ -143,6 +171,11 @@ if ($page === 'files') {
 
 if ($page === 'system') {
     KodVadAll\Modules\System\SystemController::handle($pdo, $admin);
+    exit;
+}
+
+if ($page === 'security') {
+    \KodVadAll\Modules\Security\SecurityController::handle($pdo, $admin);
     exit;
 }
 

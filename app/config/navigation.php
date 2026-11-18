@@ -33,6 +33,7 @@ return [
             ['label' => 'nav.integrations', 'page' => 'integrations', 'permission' => 'api.view', 'icon' => 'webhook'],
             ['label' => 'nav.files', 'page' => 'files', 'permission' => 'files.view', 'icon' => 'folder-lock'],
             ['label' => 'nav.system', 'page' => 'system', 'permission' => 'system.view', 'icon' => 'server-cog'],
+            ['label' => 'nav.security', 'page' => 'security', 'permission' => 'security.view', 'icon' => 'shield-check'],
             ['label' => 'nav.tasks', 'page' => 'tasks', 'permission' => 'tasks.view', 'icon' => 'list-checks']
         ]
     ],

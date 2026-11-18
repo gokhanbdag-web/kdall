@@ -455,3 +455,7 @@ input[type=date],input[type=datetime-local],input[type=time],input[type=month]{-
 .extension-ok,.extension-missing{width:19px;height:19px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;background:#e4f5eb;color:#16845f}
 .extension-missing{background:#fff0e8;color:#b45d22}
 @media(max-width:600px){.extension-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Security centre */
+.logout-link{font-size:11px;color:var(--muted);text-decoration:none;margin-left:8px}
+.logout-link:hover{color:var(--danger)}

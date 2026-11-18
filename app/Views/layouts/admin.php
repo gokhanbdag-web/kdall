@@ -33,7 +33,7 @@ try {
             <div class="topbar-actions">
                 <label class="quick-search"><span>⌕</span><input type="search" placeholder="<?= kd_e(kd_t('common.search')) ?>" aria-label="<?= kd_e(kd_t('common.search')) ?>"></label>
                 <a class="icon-button notification-link" href="index.php?page=notifications" aria-label="<?= kd_e(kd_t('common.notifications')) ?>">♧<?php if($notificationUnread): ?><b><?= $notificationUnread>99?'99+':$notificationUnread ?></b><?php endif; ?></a>
-                <div class="top-user"><span class="avatar small-avatar"><?= kd_e($userInitial) ?></span><span><?= kd_e($admin['name']) ?></span></div>
+                <div class="top-user"><span class="avatar small-avatar"><?= kd_e($userInitial) ?></span><span><?= kd_e($admin["name"]) ?></span><a class="logout-link" href="index.php?logout=1">Çıkış</a></div>
             </div>
         </header>
         <?= $content ?>
