@@ -20,7 +20,7 @@ return [
     [
         'section' => 'nav.system',
         'items' => [
-            ['label' => 'nav.users', 'page' => 'users', 'permission' => 'users.view', 'icon' => 'shield-check', 'coming' => true],
+            ['label' => 'nav.users', 'page' => 'users', 'permission' => 'users.view', 'icon' => 'shield-check'],
             ['label' => 'nav.settings', 'page' => 'settings', 'permission' => 'settings.manage', 'icon' => 'settings', 'coming' => true]
         ]
     ]

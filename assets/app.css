@@ -338,3 +338,19 @@ select:not([multiple]){
 }
 select[multiple]{-webkit-appearance:auto;appearance:auto;background-image:none}
 input[type=date],input[type=datetime-local],input[type=time],input[type=month]{-webkit-appearance:auto;appearance:auto}
+
+
+/* User and access management */
+.user-role{display:inline-flex;padding:5px 9px;border-radius:7px;background:#f1f4fa;color:#596a83;font-size:10px;font-weight:700}
+.user-detail-panel{padding:25px}
+.user-detail-heading{display:flex;align-items:center;gap:14px;padding-bottom:21px;border-bottom:1px solid var(--line)}
+.user-detail-heading .profile-avatar{width:52px;height:52px;font-size:20px}
+.user-detail-heading>div{min-width:0;flex:1}
+.user-detail-heading h2{font-size:19px;margin:0 0 4px;overflow-wrap:anywhere}
+.user-detail-heading p{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+.user-meta-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.user-status-form{display:flex;align-items:center;justify-content:space-between;gap:15px;border-top:1px solid var(--line);padding-top:18px;margin-top:4px}
+.user-status-form>span{font-size:11px;color:var(--muted)}
+.user-status-form .btn{padding:0 16px;white-space:nowrap}
+@media(max-width:680px){.user-detail-panel{padding:18px}.user-meta-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.user-status-form{align-items:stretch;flex-direction:column}.user-status-form .btn{width:100%}}
+@media(max-width:460px){.user-detail-heading{align-items:flex-start;flex-wrap:wrap}.user-detail-heading>.customer-status{margin-left:66px}}
