@@ -37,6 +37,22 @@ CREATE TABLE IF NOT EXISTS accounting_journal_lines (
  INDEX idx_accounting_line_account(account_id,journal_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+INSERT IGNORE INTO accounting_accounts(code,name,account_type,is_active,created_at) VALUES
+('100','Kasa','asset',1,NOW()),
+('102','Bankalar','asset',1,NOW()),
+('120','Alıcılar','asset',1,NOW()),
+('153','Ticari Mallar','asset',1,NOW()),
+('191','İndirilecek KDV','asset',1,NOW()),
+('320','Satıcılar','liability',1,NOW()),
+('360','Ödenecek Vergi ve Fonlar','liability',1,NOW()),
+('500','Sermaye','equity',1,NOW()),
+('600','Yurtiçi Satışlar','income',1,NOW()),
+('610','Satıştan İadeler','income',1,NOW()),
+('621','Satılan Ticari Mallar Maliyeti','expense',1,NOW()),
+('760','Pazarlama Satış Dağıtım Giderleri','expense',1,NOW()),
+('770','Genel Yönetim Giderleri','expense',1,NOW()),
+('780','Finansman Giderleri','expense',1,NOW());
+
 INSERT IGNORE INTO permissions (permission_key,name,module,created_at) VALUES
 ('accounting.view','Muhasebe kayıtlarını görüntüle','accounting',NOW()),
 ('accounting.manage','Muhasebe kayıtlarını yönet','accounting',NOW());
