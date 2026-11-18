@@ -51,6 +51,16 @@ if (!headers_sent()) {
     }
 }
 
+function kd_t(string $key): string
+{
+    static $translations = null;
+    if ($translations === null) {
+        $file = KD_ROOT . '/app/lang/tr.php';
+        $translations = is_file($file) ? require $file : [];
+    }
+    return (string)($translations[$key] ?? $key);
+}
+
 function kd_e(mixed $value): string
 {
     return htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
