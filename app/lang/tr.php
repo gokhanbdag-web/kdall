@@ -15,6 +15,7 @@ return [
     'nav.finance' => 'Finans & Ön Muhasebe',
     'nav.invoices' => 'Faturalandırma',
     'nav.marketplaces' => 'Pazaryeri Entegrasyonları',
+    'nav.shipping' => 'Kargo & Lojistik',
     'nav.tasks' => 'Görevler',
     'nav.system' => 'SİSTEM',
     'nav.users' => 'Kullanıcılar & Yetkiler',

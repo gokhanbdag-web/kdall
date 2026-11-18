@@ -383,3 +383,8 @@ input[type=date],input[type=datetime-local],input[type=time],input[type=month]{-
 .marketplace-grid input[type=password]{letter-spacing:.08em}
 @media(max-width:900px){.marketplace-grid{grid-template-columns:1fr}}
 @media(max-width:620px){.marketplace-grid .customer-form-panel{padding:16px}}
+
+/* Shipment and carrier workflows */
+.shipping-label{border:1px dashed var(--line);padding:24px;max-width:620px}
+.shipping-label .shipment-code{font-size:24px;letter-spacing:.08em;font-weight:800}
+@media print{.shipping-label{border:1px solid #999!important;padding:16px!important}}
