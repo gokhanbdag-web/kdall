@@ -21,6 +21,8 @@ return [
             ['label' => 'nav.marketplaces', 'page' => 'marketplaces', 'permission' => 'marketplaces.view', 'icon' => 'store'],
             ['label' => 'nav.shipping', 'page' => 'shipping', 'permission' => 'shipments.view', 'icon' => 'truck'],
             ['label' => 'nav.returns', 'page' => 'returns', 'permission' => 'returns.view', 'icon' => 'rotate-ccw'],
+            ['label' => 'nav.quotes', 'page' => 'quotes', 'permission' => 'quotes.view', 'icon' => 'file-check'],
+            ['label' => 'nav.contracts', 'page' => 'contracts', 'permission' => 'contracts.view', 'icon' => 'file-signature'],
             ['label' => 'nav.tasks', 'page' => 'tasks', 'permission' => 'tasks.view', 'icon' => 'list-checks']
         ]
     ],

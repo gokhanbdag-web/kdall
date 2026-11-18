@@ -1,0 +1,55 @@
+<?php
+declare(strict_types=1);
+namespace KodVadAll\Modules\SalesDocuments;
+use PDO;
+use RuntimeException;
+use Throwable;
+
+final class SalesDocumentsController
+{
+ public static function handle(PDO $db,array $admin,string $page):void
+ {
+  $quotePage=$page==='quotes';$prefix=$quotePage?'quotes':'contracts';kd_require_permission($prefix.'.view');$action=(string)($_GET['action']??'list');$id=max(0,(int)($_GET['id']??0));$errors=[];
+  if($_SERVER['REQUEST_METHOD']==='POST'){
+   kd_csrf_check();kd_require_permission($prefix.'.manage');
+   try{
+    $form=(string)($_POST['form_action']??'');
+    if($quotePage&&$form==='create'){
+     $customer=(int)($_POST['customer_id']??0);$q=$db->prepare("SELECT id FROM customers WHERE id=? AND status='active'");$q->execute([$customer]);if(!$q->fetchColumn())throw new RuntimeException('Aktif müşteri seçin.');
+     $ids=is_array($_POST['product_id']??null)?$_POST['product_id']:[];$qtys=is_array($_POST['quantity']??null)?$_POST['quantity']:[];$prices=is_array($_POST['unit_price']??null)?$_POST['unit_price']:[];$taxes=is_array($_POST['tax_rate']??null)?$_POST['tax_rate']:[];$items=[];$subtotal=0;$taxTotal=0;
+     foreach($ids as $i=>$raw){$pid=(int)$raw;$qty=(float)($qtys[$i]??0);if($pid<1&&$qty<=0)continue;if($pid<1||$qty<=0)throw new RuntimeException('Ürün ve miktar bilgilerini kontrol edin.');$q=$db->prepare("SELECT id,name,sku,sale_price,status FROM products WHERE id=?");$q->execute([$pid]);$p=$q->fetch();if(!$p||$p['status']!=='active')throw new RuntimeException('Aktif ürün seçin.');$price=(float)($prices[$i]??$p['sale_price']);$tax=(float)($taxes[$i]??0);if($price<0||$tax<0||$tax>100)throw new RuntimeException('Fiyat veya vergi oranı geçersiz.');$sub=round($qty*$price,2);$vat=round($sub*$tax/100,2);$items[]=[$pid,$p['name'],$p['sku'],$qty,$price,$tax,$sub,$vat,$sub+$vat];$subtotal+=$sub;$taxTotal+=$vat;}
+     if(!$items)throw new RuntimeException('Teklife en az bir ürün ekleyin.');$valid=trim((string)($_POST['valid_until']??''));if($valid!==''&&!preg_match('/^\d{4}-\d{2}-\d{2}$/',$valid))throw new RuntimeException('Teklif geçerlilik tarihi geçersiz.');
+     $db->beginTransaction();$tmp='TMP-'.bin2hex(random_bytes(8));$q=$db->prepare("INSERT INTO quotes (quote_number,customer_id,status,valid_until,currency,subtotal,tax_total,grand_total,notes,created_by,created_at) VALUES (?,?,'draft',?,'TRY',?,?,?,?,?,NOW())");$q->execute([$tmp,$customer,$valid?:null,$subtotal,$taxTotal,$subtotal+$taxTotal,trim((string)($_POST['notes']??''))?:null,(int)$admin['id']]);$quoteId=(int)$db->lastInsertId();$number='TEK-'.date('Y').'-'.str_pad((string)$quoteId,6,'0',STR_PAD_LEFT);$db->prepare('UPDATE quotes SET quote_number=? WHERE id=?')->execute([$number,$quoteId]);$ins=$db->prepare('INSERT INTO quote_items (quote_id,product_id,product_name,sku,quantity,unit_price,tax_rate,line_subtotal,line_tax,line_total,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,NOW())');foreach($items as $it)$ins->execute([$quoteId,...$it]);$db->commit();kd_audit('quote.created','quote',$quoteId);self::go('quotes','view',$quoteId);
+    }
+    if($quotePage&&$form==='status'){
+     $quoteId=(int)($_POST['quote_id']??0);$to=(string)($_POST['status']??'');$allowed=['draft'=>['sent','rejected','expired'],'sent'=>['accepted','rejected','expired'],'accepted'=>[],'rejected'=>[],'expired'=>[],'converted'=>[]];$db->beginTransaction();$q=$db->prepare('SELECT * FROM quotes WHERE id=? FOR UPDATE');$q->execute([$quoteId]);$quote=$q->fetch();if(!$quote||!in_array($to,$allowed[$quote['status']]??[],true))throw new RuntimeException('Teklif durumu değiştirilemedi.');$db->prepare('UPDATE quotes SET status=?,accepted_at=IF(?=\'accepted\',NOW(),accepted_at),updated_at=NOW() WHERE id=?')->execute([$to,$to,$quoteId]);$db->commit();kd_audit('quote.status_changed','quote',$quoteId);self::go('quotes','view',$quoteId);
+    }
+    if($quotePage&&$form==='convert'){
+     $quoteId=(int)($_POST['quote_id']??0);$db->beginTransaction();$q=$db->prepare('SELECT * FROM quotes WHERE id=? FOR UPDATE');$q->execute([$quoteId]);$quote=$q->fetch();if(!$quote||$quote['status']!=='accepted'||$quote['converted_order_id'])throw new RuntimeException('Yalnızca kabul edilmiş ve henüz siparişe dönüşmemiş teklifler aktarılabilir.');$q=$db->prepare('SELECT * FROM quote_items WHERE quote_id=?');$q->execute([$quoteId]);$items=$q->fetchAll();$tmp='TMP-'.bin2hex(random_bytes(8));$q=$db->prepare("INSERT INTO orders (order_number,customer_id,status,subtotal,tax_total,grand_total,currency,notes,created_at) VALUES (?,?,'draft',?,?,?,?,?,NOW())");$q->execute([$tmp,$quote['customer_id'],$quote['subtotal'],$quote['tax_total'],$quote['grand_total'],$quote['currency'],'Teklif '.$quote['quote_number']]);$orderId=(int)$db->lastInsertId();$number='SIP-'.date('Y').'-'.str_pad((string)$orderId,6,'0',STR_PAD_LEFT);$db->prepare('UPDATE orders SET order_number=? WHERE id=?')->execute([$number,$orderId]);$ins=$db->prepare('INSERT INTO order_items (order_id,product_id,product_name,sku,quantity,unit_price,tax_rate,line_subtotal,line_tax,line_total,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,NOW())');foreach($items as $it)$ins->execute([$orderId,$it['product_id'],$it['product_name'],$it['sku'],$it['quantity'],$it['unit_price'],$it['tax_rate'],$it['line_subtotal'],$it['line_tax'],$it['line_total']]);$db->prepare("UPDATE quotes SET status='converted',converted_order_id=?,updated_at=NOW() WHERE id=?")->execute([$orderId,$quoteId]);$db->commit();kd_audit('quote.converted','quote',$quoteId);self::go('quotes','view',$quoteId);
+    }
+    if(!$quotePage&&$form==='create'){
+     $customer=(int)($_POST['customer_id']??0);$quoteId=(int)($_POST['quote_id']??0);$title=trim((string)($_POST['title']??''));$start=trim((string)($_POST['start_date']??''));$end=trim((string)($_POST['end_date']??''));$value=(float)($_POST['contract_value']??0);$currency='TRY';
+     if($title===''||$value<0)throw new RuntimeException('Sözleşme başlığı ve tutar bilgilerini kontrol edin.');
+     if($quoteId>0){$q=$db->prepare("SELECT customer_id,grand_total,currency,status FROM quotes WHERE id=? AND status IN ('accepted','converted')");$q->execute([$quoteId]);$qte=$q->fetch();if(!$qte)throw new RuntimeException('Kabul edilmiş bir teklif seçin.');$customer=(int)$qte['customer_id'];$value=(float)$qte['grand_total'];$currency=$qte['currency'];}
+     $q=$db->prepare("SELECT id FROM customers WHERE id=? AND status='active'");$q->execute([$customer]);if(!$q->fetchColumn())throw new RuntimeException('Aktif müşteri seçin.');
+     foreach([$start,$end] as $date)if($date!==''&&!preg_match('/^\d{4}-\d{2}-\d{2}$/',$date))throw new RuntimeException('Sözleşme tarihi geçersiz.');
+     if($start!==''&&$end!==''&&$end<$start)throw new RuntimeException('Sözleşme bitiş tarihi başlangıç tarihinden önce olamaz.');
+     $tmp='TMP-'.bin2hex(random_bytes(8));$db->prepare("INSERT INTO contracts (contract_number,customer_id,quote_id,title,status,start_date,end_date,contract_value,currency,terms,created_by,created_at) VALUES (?,?,?,?,'draft',?,?,?,?,?,?,NOW())")->execute([$tmp,$customer,$quoteId?:null,$title,$start?:null,$end?:null,$value,$currency,trim((string)($_POST['terms']??''))?:null,(int)$admin['id']]);$contractId=(int)$db->lastInsertId();$number='SOZ-'.date('Y').'-'.str_pad((string)$contractId,6,'0',STR_PAD_LEFT);$db->prepare('UPDATE contracts SET contract_number=? WHERE id=?')->execute([$number,$contractId]);kd_audit('contract.created','contract',$contractId);self::go('contracts','view',$contractId);
+    }
+    if(!$quotePage&&$form==='status'){$contractId=(int)($_POST['contract_id']??0);$to=(string)($_POST['status']??'');$allowed=['draft'=>['active','cancelled'],'active'=>['completed','cancelled'],'completed'=>[],'cancelled'=>[]];$q=$db->prepare('SELECT status FROM contracts WHERE id=?');$q->execute([$contractId]);$from=$q->fetchColumn();if(!$from||!in_array($to,$allowed[$from]??[],true))throw new RuntimeException('Sözleşme durumu değiştirilemedi.');$db->prepare('UPDATE contracts SET status=?,updated_at=NOW() WHERE id=?')->execute([$to,$contractId]);kd_audit('contract.status_changed','contract',$contractId);self::go('contracts','view',$contractId);}
+   }catch(Throwable $e){if($db->inTransaction())$db->rollBack();error_log('KodVadAll sales documents: '.$e->getMessage());$errors[]=$e instanceof RuntimeException?$e->getMessage():'İşlem tamamlanamadı.';$action=(string)($_GET['action']??'list');$id=max(0,(int)($_GET['id']??0));}
+  }
+  if($quotePage){
+   if($action==='create'){$customers=$db->query("SELECT id,name FROM customers WHERE status='active' ORDER BY name")->fetchAll();$products=$db->query("SELECT id,name,sku,sale_price FROM products WHERE status='active' ORDER BY name LIMIT 500")->fetchAll();}
+   elseif($action==='view'){$q=$db->prepare('SELECT q.*,c.name customer_name FROM quotes q JOIN customers c ON c.id=q.customer_id WHERE q.id=?');$q->execute([$id]);$record=$q->fetch();if(!$record)self::notFound();$q=$db->prepare('SELECT * FROM quote_items WHERE quote_id=?');$q->execute([$id]);$items=$q->fetchAll();}
+   else{$status=in_array($_GET['status']??'', ['draft','sent','accepted','rejected','expired','converted'],true)?$_GET['status']:'';$where=[];$params=[];if($status!==''){$where[]='q.status=?';$params[]=$status;}$sql=$where?' WHERE '.implode(' AND ',$where):'';$q=$db->prepare('SELECT q.*,c.name customer_name FROM quotes q JOIN customers c ON c.id=q.customer_id'.$sql.' ORDER BY q.id DESC LIMIT 150');$q->execute($params);$rows=$q->fetchAll();}
+  }else{
+   if($action==='create'){$customers=$db->query("SELECT id,name FROM customers WHERE status='active' ORDER BY name")->fetchAll();$quotes=$db->query("SELECT id,quote_number,customer_id,grand_total FROM quotes WHERE status IN ('accepted','converted') ORDER BY id DESC")->fetchAll();}
+   elseif($action==='view'){$q=$db->prepare('SELECT c.*,cu.name customer_name,q.quote_number FROM contracts c JOIN customers cu ON cu.id=c.customer_id LEFT JOIN quotes q ON q.id=c.quote_id WHERE c.id=?');$q->execute([$id]);$record=$q->fetch();if(!$record)self::notFound();}
+   else{$status=in_array($_GET['status']??'', ['draft','active','completed','cancelled'],true)?$_GET['status']:'';$where=[];$params=[];if($status!==''){$where[]='c.status=?';$params[]=$status;}$sql=$where?' WHERE '.implode(' AND ',$where):'';$q=$db->prepare('SELECT c.*,cu.name customer_name FROM contracts c JOIN customers cu ON cu.id=c.customer_id'.$sql.' ORDER BY c.id DESC LIMIT 150');$q->execute($params);$rows=$q->fetchAll();}
+  }
+  $pageTitle=$quotePage?'Teklifler':'Sözleşmeler';ob_start();require KD_ROOT.'/app/Views/sales-documents/index.php';$content=ob_get_clean();require KD_ROOT.'/app/Views/layouts/admin.php';
+ }
+ private static function go(string $page,string $action='list',int $id=0):never{$u='index.php?page='.$page;if($action!=='list')$u.='&action='.$action;if($id)$u.='&id='.$id;header('Location: '.$u,true,303);exit;}
+ private static function notFound():never{http_response_code(404);exit('Kayıt bulunamadı.');}
+}

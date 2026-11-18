@@ -17,6 +17,8 @@ return [
     'nav.marketplaces' => 'Pazaryeri Entegrasyonları',
     'nav.shipping' => 'Kargo & Lojistik',
     'nav.returns' => 'İade & Değişim',
+    'nav.quotes' => 'Teklifler',
+    'nav.contracts' => 'Sözleşmeler',
     'nav.tasks' => 'Görevler',
     'nav.system' => 'SİSTEM',
     'nav.users' => 'Kullanıcılar & Yetkiler',

@@ -91,6 +91,11 @@ if ($page === 'returns') {
     exit;
 }
 
+if ($page === 'quotes' || $page === 'contracts') {
+    KodVadAll\Modules\SalesDocuments\SalesDocumentsController::handle($pdo, $admin, $page);
+    exit;
+}
+
 if ($page === 'settings') {
     KodVadAll\Modules\Settings\SettingsController::handle($pdo);
     exit;

@@ -54,5 +54,7 @@ jobs:
         run: php tests/shipping_module_smoke.php
       - name: Run returns module smoke tests
         run: php tests/returns_module_smoke.php
+      - name: Run sales documents smoke tests
+        run: php tests/sales_documents_smoke.php
       - name: Check JavaScript syntax
         run: node --check assets/admin.js && node --check assets/orders.js

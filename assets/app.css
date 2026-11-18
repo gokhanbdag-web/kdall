@@ -395,3 +395,6 @@ input[type=date],input[type=datetime-local],input[type=time],input[type=month]{-
 .return-summary small{display:block;color:var(--muted);font-size:10px}
 .return-summary strong{display:block;margin-top:5px;font-size:17px}
 @media(max-width:600px){.return-summary{grid-template-columns:1fr}}
+
+/* Sales quote and contract documents */
+.document-terms{white-space:pre-wrap;line-height:1.7;color:var(--ink);font-size:13px}
