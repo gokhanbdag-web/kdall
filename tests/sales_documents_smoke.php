@@ -8,4 +8,7 @@ $nav=require dirname(__DIR__).'/app/config/navigation.php';$found=[];foreach($na
 $salesDocumentsController=file_get_contents(dirname(__DIR__).'/app/Modules/SalesDocuments/SalesDocumentsController.php');
 $salesDocumentsView=file_get_contents(dirname(__DIR__).'/app/Views/sales-documents/index.php');
 if($salesDocumentsController===false||strpos($salesDocumentsController,'warehouse_id')===false||$salesDocumentsView===false||strpos($salesDocumentsView,'name="warehouse_id"')===false){fwrite(STDERR,"Quote conversion must select a sales warehouse.\\n");exit(1);}
+if($salesDocumentsController===false||strpos($salesDocumentsController,'purchase_price')===false||strpos($salesDocumentsController,'unit_cost')===false||strpos($salesDocumentsController,'$itemsCost')===false){fwrite(STDERR,"Quote conversion must preserve the product cost snapshot.\n");exit(1);}
+$costMigration=file_get_contents(dirname(__DIR__).'/database/migrations/046_quote_item_costing.sql');
+if($costMigration===false||strpos($costMigration,'unit_cost')===false){fwrite(STDERR,"Quote item cost migration missing.\n");exit(1);}
 echo "KodVadAll sales documents smoke tests passed.\n";
