@@ -101,6 +101,10 @@ final class WarehousesController
                 }
             }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();error_log('KodVadAll warehouses: '.$e->getMessage());$errors[]=$e instanceof RuntimeException?$e->getMessage():'Depo işlemi tamamlanamadı. Bilgileri kontrol edin.';}
         }
+        if($action==='reconcile'){
+            $discrepancies=$pdo->query("SELECT p.id,p.name,p.sku,p.stock_quantity,COALESCE(SUM(s.quantity),0) warehouse_total,ROUND(p.stock_quantity-COALESCE(SUM(s.quantity),0),3) difference FROM products p LEFT JOIN product_warehouse_stocks s ON s.product_id=p.id WHERE p.track_stock=1 GROUP BY p.id,p.name,p.sku,p.stock_quantity HAVING ABS(difference)>0.0005 ORDER BY ABS(difference) DESC,p.id LIMIT 200")->fetchAll();
+            $pageTitle='Stok Mutabakatı';ob_start();require KD_ROOT.'/app/Views/warehouses/reconcile.php';$content=ob_get_clean();require KD_ROOT.'/app/Views/layouts/admin.php';return;
+        }
         if($action==='stocktakes'){
             $warehouses=$pdo->query("SELECT id,name,code FROM warehouses WHERE status='active' ORDER BY is_default DESC,name")->fetchAll();
             $stocktakes=$pdo->query("SELECT s.*,w.name warehouse_name,u.name creator_name,(SELECT COUNT(*) FROM warehouse_stocktake_items i WHERE i.stocktake_id=s.id) item_count,(SELECT COUNT(*) FROM warehouse_stocktake_items i WHERE i.stocktake_id=s.id AND i.counted_quantity IS NOT NULL) counted_count FROM warehouse_stocktakes s JOIN warehouses w ON w.id=s.warehouse_id LEFT JOIN users u ON u.id=s.created_by ORDER BY s.id DESC LIMIT 100")->fetchAll();
