@@ -8,6 +8,7 @@ $view=file_get_contents(dirname(__DIR__).'/app/Views/purchasing/index.php');
 foreach(['form_action','reorder','min_stock','purchase_order_items','beginTransaction','weightedCost'] as $needle){if($controller===false||strpos($controller,$needle)===false){fwrite(STDERR,"Critical stock replenishment logic missing {$needle}.\n");exit(1);}}
 foreach(['Kritik stoktan sipariş önerisi','Öneri miktarı','Taslak satın alma siparişi oluştur'] as $needle){if($view===false||strpos($view,$needle)===false){fwrite(STDERR,"Critical stock replenishment view missing {$needle}.\n");exit(1);}}
 
+foreach(["SELECT COUNT(*) FROM purchase_receipts WHERE purchase_order_id=?","source_purchase_id=? AND status IN ('issued','paid')","Mal kabulü yapılmış satın alma siparişi doğrudan iptal edilemez"] as $needle){if($controller===false||strpos($controller,$needle)===false){fwrite(STDERR,"Purchase-to-payment cancellation guard missing {$needle}.\\n");exit(1);}}
 $sql=file_get_contents(dirname(__DIR__).'/database/migrations/005_suppliers_purchasing.sql');
 $controller=file_get_contents(dirname(__DIR__).'/app/Modules/Purchasing/PurchasingController.php');
 foreach(['weightedCost','incomingCost','purchase_price','received_quantity'] as $needle){if($controller===false||strpos($controller,$needle)===false){fwrite(STDERR,"Purchasing weighted-cost logic missing {$needle}.\n");exit(1);}}
