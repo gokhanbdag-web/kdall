@@ -51,10 +51,16 @@ final class PaymentGateway
  {
   return $receivedAmount===(int)round($expectedAmount*100,0,PHP_ROUND_HALF_UP);
  }
+ private static function callbackSignatureMatches(string $oid,string $salt,string $status,int $total,string $key,string $hash):bool
+ {
+  if($oid===''||$hash==='')return false;
+  $expected=base64_encode(hash_hmac('sha256',$oid.$salt.$status.(string)$total,$key,true));
+  return hash_equals($expected,$hash);
+ }
  public static function handlePaytrCallback(PDO $db,array $post):bool
  {
   $cfg=self::config($db);$oid=(string)($post['merchant_oid']??'');$status=(string)($post['status']??'');$totalRaw=$post['total_amount']??'';$hash=(string)($post['hash']??'');if($oid===''||!in_array($status,['success','failed'],true)||(!is_string($totalRaw)&&!is_int($totalRaw))||!preg_match('/^[1-9][0-9]*$/D',(string)$totalRaw)||$hash==='')return false;$total=filter_var((string)$totalRaw,FILTER_VALIDATE_INT);if($total===false)return false;
-  $expected=base64_encode(hash_hmac('sha256',$oid.(string)$cfg['merchant_salt'].$status.(string)$total,(string)$cfg['merchant_key'],true));if(!hash_equals($expected,$hash))return false;
+  if(!self::callbackSignatureMatches($oid,(string)$cfg['merchant_salt'],$status,$total,(string)$cfg['merchant_key'],$hash))return false;
   $db->beginTransaction();try{$q=$db->prepare('SELECT * FROM payment_transactions WHERE provider=? AND provider_reference=? FOR UPDATE');$q->execute(['paytr',$oid]);$tx=$q->fetch();if(!$tx){$db->rollBack();return false;}if($status==='success'&&!self::amountMatches((float)$tx['amount'],$total)){$db->rollBack();return false;}$new=$status==='success'?'paid':'failed';if(in_array($tx['status'],['paid','failed'],true)){$sameStatus=$tx['status']===$new;$db->commit();return $sameStatus;}
    $db->prepare('UPDATE payment_transactions SET status=?,provider_response=?,updated_at=NOW() WHERE id=?')->execute([$new,json_encode(['callback_status'=>$status,'total_amount'=>$total],JSON_UNESCAPED_UNICODE),(int)$tx['id']]);$db->prepare('UPDATE orders SET payment_status=?,updated_at=NOW() WHERE id=?')->execute([$new==='paid'?'paid':'failed',(int)$tx['order_id']]);$db->commit();\KodVadAll\Core\NotificationService::notifyRoles($db,['owner','admin','manager'],'PayTR ödeme bildirimi','PayTR üzerinden bir ödeme sonucu alındı.','index.php?page=payments','success');\KodVadAll\Core\WebhookService::enqueue($db,$status==='success'?'payment.paid':'payment.failed',['order_id'=>(int)$tx['order_id'],'provider_reference'=>$oid,'status'=>$status,'amount'=>$total/100]);return true;
   }catch(Throwable $e){if($db->inTransaction())$db->rollBack();error_log('PayTR callback: '.$e->getMessage());return false;}
