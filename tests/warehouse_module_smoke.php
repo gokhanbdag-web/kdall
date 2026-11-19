@@ -33,4 +33,8 @@ foreach([
 foreach(['app/Views/warehouses/index.php','app/Views/warehouses/transfers.php'] as $path){
  $source=$read($path);if(strpos($source,'kd_csrf_field')===false){fwrite(STDERR,"CSRF form protection missing: {$path}\n");exit(1);}
 }
+$reconcile=$read('app/Views/warehouses/reconcile.php');
+$warehouseController=$read('app/Modules/Warehouses/WarehousesController.php');
+foreach(['warehouse_total','HAVING ABS(difference)>0.0005','action===\'reconcile\''] as $needle){if(strpos($warehouseController,$needle)===false){fwrite(STDERR,"Warehouse reconciliation missing {$needle}.\\n");exit(1);}}
+if(strpos($reconcile,'Stok mutabakatı')===false){fwrite(STDERR,"Warehouse reconciliation report missing.\\n");exit(1);}
 echo "KodVadAll multi-warehouse inventory smoke tests passed.\n";
