@@ -14,4 +14,5 @@ $accounting=file_get_contents(dirname(__DIR__).'/app/Core/AccountingPostingServi
 $serviceCostMigration=file_get_contents(dirname(__DIR__).'/database/migrations/045_service_part_costing.sql');
 foreach(['unit_cost','AccountingPostingService::postServiceParts','SUM(quantity*unit_cost)'] as $needle){if($serviceController===false||strpos($serviceController,$needle)===false){fwrite(STDERR,"Service part cost/accounting flow missing {$needle}.\n");exit(1);}}
 if($accounting===false||strpos($accounting,'postServiceParts')===false||strpos($accounting,"'service_parts'")===false||$serviceCostMigration===false||strpos($serviceCostMigration,'unit_cost')===false){fwrite(STDERR,"Service part accounting migration or journal missing.\n");exit(1);}
+foreach(["SELECT status FROM service_jobs WHERE id=? FOR UPDATE","if(!is_finite(\$qty)||\$qty<=0)","\$db->commit();\$id=\$jobId;"] as $needle){if($serviceController===false||strpos($serviceController,$needle)===false){fwrite(STDERR,"Service job concurrency or part quantity guard missing.\\n");exit(1);}}
 echo "KodVadAll technical service smoke tests passed.\n";
