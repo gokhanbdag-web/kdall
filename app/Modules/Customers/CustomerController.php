@@ -125,6 +125,7 @@ final class CustomerController
             );
             $stmt->execute([$id]);
             $activities = $stmt->fetchAll();
+            $ledger = \KodVadAll\Core\PartyLedgerService::statement($pdo,'customer',$id);
             $pageTitle = (string)$customer['name'];
             ob_start();
             require KD_ROOT . '/app/Views/customers/detail.php';

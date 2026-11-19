@@ -68,6 +68,8 @@ jobs:
         run: php tests/purchasing_module_smoke.php
       - name: Run finance module smoke tests
         run: php tests/finance_module_smoke.php
+      - name: Run customer and supplier ledger smoke tests
+        run: php tests/party_ledger_smoke.php
       - name: Run invoice module smoke tests
         run: php tests/invoice_module_smoke.php
       - name: Run marketplace module smoke tests

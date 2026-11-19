@@ -19,3 +19,5 @@ declare(strict_types=1);
         </div>
     </section>
 </div>
+
+<?php require KD_ROOT.'/app/Views/finance/party_ledger.php'; ?>
