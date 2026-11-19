@@ -38,7 +38,7 @@ final class AccountingController
   $today=date('Y-m-d');$from=(string)($_GET['from']??date('Y-01-01'));$to=(string)($_GET['to']??$today);
   foreach([$from,$to] as $date)if(!preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$date))throw new RuntimeException('Rapor tarih aralığı geçersiz.');
   if($from>$to)[$from,$to]=[$to,$from];
-  $report=(string)($_GET['report']??'overview');if(!in_array($report,['overview','trial','balance','profit','ledger'],true))$report='overview';
+  $report=(string)($_GET['report']??'overview');if(!in_array($report,['overview','trial','balance','profit','ledger','reconcile'],true))$report='overview';
   $accountId=max(0,(int)($_GET['account_id']??0));
   $accounts=$db->query('SELECT id,code,name,account_type,is_active FROM accounting_accounts ORDER BY code')->fetchAll();
   $journalQuery=$db->prepare('SELECT j.*,COUNT(l.id) line_count,COALESCE(SUM(l.debit),0) total_debit,COALESCE(SUM(l.credit),0) total_credit FROM accounting_journals j LEFT JOIN accounting_journal_lines l ON l.journal_id=j.id AND l.currency=? GROUP BY j.id ORDER BY j.journal_date DESC,j.id DESC LIMIT 100');$journalQuery->execute([$currency]);$journals=$journalQuery->fetchAll();
@@ -58,6 +58,19 @@ final class AccountingController
   foreach(['asset','liability','equity'] as $type){$v=$byType[$type]??['debit'=>0,'credit'=>0];$totals[$type]=$type==='asset'?$v['debit']-$v['credit']:$v['credit']-$v['debit'];}
   $totals['equity_with_profit']=$totals['equity']+$balanceNetProfit;
   $totals['balance_difference']=$totals['asset']-($totals['liability']+$totals['equity_with_profit']);
+  $reconciliation=[];
+  if($report==='reconcile'){
+   $q=$db->prepare("SELECT a.id,a.name,a.account_type,a.opening_balance,COALESCE((SELECT SUM(CASE WHEN t.direction='credit' THEN t.amount ELSE -t.amount END) FROM financial_transactions t WHERE t.account_id=a.id AND t.currency=? AND t.transaction_date<=?),0) movements FROM financial_accounts a WHERE a.currency=? ORDER BY a.name");$q->execute([$currency,$to,$currency]);
+   $reconciliation=$q->fetchAll();
+   foreach($reconciliation as &$row){
+    $accountCode=$row['account_type']==='bank'?'102':'100';
+    $row['finance_balance']=round((float)$row['opening_balance']+(float)$row['movements'],2);
+    $row['account_code']=$accountCode;
+   }unset($row);
+   $q=$db->prepare("SELECT a.code,COALESCE(SUM(CASE WHEN j.status='posted' AND j.journal_date<=? THEN l.debit-l.credit ELSE 0 END),0) balance FROM accounting_accounts a LEFT JOIN accounting_journal_lines l ON l.account_id=a.id AND l.currency=? LEFT JOIN accounting_journals j ON j.id=l.journal_id WHERE a.code IN ('100','102') GROUP BY a.code");$q->execute([$to,$currency]);$generalLedger=[];foreach($q->fetchAll() as $r)$generalLedger[$r['code']]=(float)$r['balance'];
+   $financeByCode=['100'=>0.0,'102'=>0.0];foreach($reconciliation as $r)$financeByCode[$r['account_code']]+=$r['finance_balance'];
+   $reconciliationTotals=[];foreach($financeByCode as $code=>$total)$reconciliationTotals[]=['code'=>$code,'finance'=>round($total,2),'ledger'=>round($generalLedger[$code]??0,2),'difference'=>round($total-($generalLedger[$code]??0),2)];
+  }
   if($report==='trial'){
    $q=$db->prepare("SELECT a.id,a.code,a.name,a.account_type,COALESCE(SUM(CASE WHEN j.id IS NOT NULL THEN l.debit ELSE 0 END),0) debit,COALESCE(SUM(CASE WHEN j.id IS NOT NULL THEN l.credit ELSE 0 END),0) credit FROM accounting_accounts a LEFT JOIN accounting_journal_lines l ON l.account_id=a.id AND l.currency=? LEFT JOIN accounting_journals j ON j.id=l.journal_id AND j.status='posted' AND j.journal_date<=? WHERE a.is_active=1 GROUP BY a.id,a.code,a.name,a.account_type ORDER BY a.code");
    $q->execute([$currency,$to]);$trial=$q->fetchAll();
