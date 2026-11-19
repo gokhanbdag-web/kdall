@@ -28,13 +28,14 @@ final class ProductionController
                     $batch = (float)($_POST['batch_size'] ?? 1);
                     $components = is_array($_POST['component_product_id'] ?? null) ? $_POST['component_product_id'] : [];
                     $quantities = is_array($_POST['quantity_per_batch'] ?? null) ? $_POST['quantity_per_batch'] : [];
-                    if ($name === '' || $output < 1 || $batch <= 0) {
+                    if ($name === '' || $output < 1 || !is_finite($batch) || $batch <= 0) {
                         throw new RuntimeException('Reçete adı, çıktı ürünü ve parti miktarı gereklidir.');
                     }
                     $items = [];
                     foreach ($components as $i => $component) {
                         $pid = (int)$component;
                         $qty = (float)($quantities[$i] ?? 0);
+                        if ($pid > 0 && (!is_finite($qty) || $qty <= 0)) { throw new RuntimeException('Hammadde miktarı pozitif ve geçerli olmalıdır.'); }
                         if ($pid > 0 && $qty > 0) {
                             if ($pid === $output) {
                                 throw new RuntimeException('Üretilen ürün kendi hammaddesi olamaz.');
@@ -62,7 +63,7 @@ final class ProductionController
                     $qty = (float)($_POST['output_quantity'] ?? 0);
                     $labor = round((float)($_POST['labor_cost'] ?? 0), 2);
                     $overhead = round((float)($_POST['overhead_cost'] ?? 0), 2);
-                    if ($recipe < 1 || $qty <= 0 || $labor < 0 || $overhead < 0) {
+                    if ($recipe < 1 || !is_finite($qty) || $qty <= 0 || !is_finite($labor) || !is_finite($overhead) || $labor < 0 || $overhead < 0) {
                         throw new RuntimeException('Reçete, üretim miktarı ve üretim giderlerini kontrol edin.');
                     }
                     $warehouseId=(int)($_POST['warehouse_id']??0);
@@ -100,6 +101,7 @@ final class ProductionController
                     $materialCost = 0.0;
                     foreach ($components as $component) {
                         $required = round((float)$component['quantity_per_batch'] * (float)$order['output_quantity'] / (float)$order['batch_size'], 3);
+                        if ($required <= 0 || !is_finite($required)) { throw new RuntimeException('Üretim için hesaplanan hammadde miktarı geçersiz veya çok küçük.'); }
                         if ((int)$component['track_stock'] && (float)$component['warehouse_quantity'] < $required) {
                             throw new RuntimeException('Yetersiz hammadde: ' . $component['name']);
                         }
