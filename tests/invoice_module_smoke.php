@@ -8,6 +8,7 @@ $controller=file_get_contents(dirname(__DIR__).'/app/Modules/Invoices/InvoiceCon
 foreach(['FOR UPDATE', "invoice_type=? AND status<>", 'Bu kaynak belge için zaten aktif bir fatura var.'] as $needle){if($controller===false||strpos($controller,$needle)===false){fwrite(STDERR,"Duplicate invoice protection missing: {$needle}.\\n");exit(1);}}
 $controller=file_get_contents(dirname(__DIR__).'/app/Modules/Invoices/InvoiceController.php');
 foreach(['amountInput', 'Ödeme tutarı en fazla iki ondalık basamak içermelidir.'] as $needle){if($controller===false||strpos($controller,$needle)===false){fwrite(STDERR,"Invoice payment precision guard missing: {$needle}.\\n");exit(1);}}
+foreach(['invoice_id=? AND direction=? AND transaction_type=? AND currency=?', 'invoice_id=? AND transaction_type=? AND direction=? AND currency=?', 't.invoice_id=? AND t.transaction_type=? AND t.direction=? AND t.currency=?'] as $needle){if(strpos($controller,$needle)===false){fwrite(STDERR,"Invoice payment reconciliation filter missing: {$needle}.\\n");exit(1);}}
 $nav=require dirname(__DIR__).'/app/config/navigation.php';$found=false;foreach($nav as $g)foreach($g['items'] as $i)if(($i['page']??'')==='invoices')$found=true;
 if(!$found){fwrite(STDERR,"Invoice navigation missing.\n");exit(1);}
 echo "KodVadAll invoice module smoke tests passed.\n";
