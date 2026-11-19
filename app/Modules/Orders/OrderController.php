@@ -102,6 +102,7 @@ final class OrderController
                     self::history($pdo,$orderId,(int)$admin['id'],null,'draft','Sipariş oluşturuldu');
                     $pdo->commit();
                     kd_audit('order.created','order',$orderId);
+                    $orderNumber=$number;
                     \KodVadAll\Core\NotificationService::notifyRoles($pdo,['owner','admin','manager'],'Yeni satış siparişi',$orderNumber.' numaralı sipariş oluşturuldu.','index.php?page=orders&action=view&id='.$orderId,'success');
                     \KodVadAll\Core\WebhookService::enqueue($pdo,'order.created',['id'=>$orderId,'order_number'=>$orderNumber,'status'=>'draft','grand_total'=>$grand]);
                     self::redirect('view',$orderId);
