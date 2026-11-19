@@ -10,4 +10,5 @@ $productionView=file_get_contents(dirname(__DIR__).'/app/Views/production/index.
 foreach(['ADD COLUMN warehouse_id','fk_production_order_warehouse'] as $needle){if($warehouseMigration===false||strpos($warehouseMigration,$needle)===false){fwrite(STDERR,"Production warehouse migration missing {$needle}.\\n");exit(1);}}
 foreach(['warehouse_id','$warehouseId','warehouse_name'] as $needle){if($productionController===false||strpos($productionController,$needle)===false){fwrite(STDERR,"Production warehouse routing missing {$needle}.\\n");exit(1);}}
 if($productionView===false||strpos($productionView,'name="warehouse_id"')===false||strpos($productionView,'warehouse_name')===false){fwrite(STDERR,"Production warehouse selection/detail UI missing.\\n");exit(1);}
+foreach(['!is_finite($batch)','!is_finite($qty)','!is_finite($labor)','!is_finite($overhead)','$required <= 0 || !is_finite($required)'] as $needle){if($productionController===false||strpos($productionController,$needle)===false){fwrite(STDERR,"Production BOM quantity guard missing {$needle}.\\n");exit(1);}}
 echo "KodVadAll production smoke tests passed.\n";
