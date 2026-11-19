@@ -14,6 +14,10 @@ final class FinanceController
    kd_csrf_check();kd_require_permission('finance.manage');
    try{
     $form=(string)($_POST['form_action']??'');
+    if($form==='allocate_advance'){
+     $id=\KodVadAll\Core\AdvanceAllocationService::allocate($db,max(0,(int)($_POST['advance_id']??0)),max(0,(int)($_POST['invoice_id']??0)),trim((string)($_POST['amount']??'')),(int)$admin['id']);
+     kd_audit('finance.advance_allocated','financial_advance_allocation',$id);self::go('list');
+    }
     if($form==='account'){
      $name=trim((string)($_POST['name']??''));$type=(string)($_POST['account_type']??'cash');$currency=strtoupper((string)($_POST['currency']??'TRY'));$opening=self::moneyAmount($_POST['opening_balance']??'0',true);
      if($name===''||mb_strlen($name)>150||!in_array($type,['cash','bank'],true)||!in_array($currency,['TRY','USD','EUR','GBP'],true)||$opening<0)throw new RuntimeException('Hesap bilgilerini kontrol edin.');
@@ -37,7 +41,9 @@ final class FinanceController
       $expectedParty=(int)($type==='collection'?$invoice['customer_id']:$invoice['supplier_id']);
       if($partyId!==$expectedParty||$acc['currency']!==$invoice['currency'])throw new RuntimeException('Fatura, cari hesap ve para birimi eşleşmiyor.');
       $q=$db->prepare('SELECT COALESCE(SUM(amount),0) FROM financial_transactions WHERE invoice_id=? AND transaction_type=? AND direction=? AND currency=?');$q->execute([$invoiceId,$type,$type==='collection'?'credit':'debit',$invoice['currency']]);
-      $remaining=round((float)$invoice['grand_total']-(float)$q->fetchColumn(),2);
+      $direct=(float)$q->fetchColumn();
+      $q=$db->prepare('SELECT COALESCE(SUM(amount),0) FROM financial_advance_allocations WHERE invoice_id=?');$q->execute([$invoiceId]);
+      $remaining=round((float)$invoice['grand_total']-$direct-(float)$q->fetchColumn(),2);
       if($amount>$remaining+0.000001)throw new RuntimeException('Ödeme tutarı kalan fatura bakiyesini aşamaz.');
      }
      $direction=in_array($type,['income','collection'],true)?'credit':'debit';
@@ -59,7 +65,8 @@ final class FinanceController
   $active=$db->query("SELECT id,name,currency,account_type FROM financial_accounts WHERE status='active' ORDER BY name")->fetchAll();
   $customers=$db->query("SELECT id,name FROM customers WHERE status='active' ORDER BY name")->fetchAll();
   $suppliers=$db->query("SELECT id,name FROM suppliers WHERE status='active' ORDER BY name")->fetchAll();
-  $openInvoices=$db->query("SELECT i.id,i.invoice_number,i.invoice_type,i.currency,i.customer_id,i.supplier_id,i.grand_total,ROUND(i.grand_total-COALESCE((SELECT SUM(t.amount) FROM financial_transactions t WHERE t.invoice_id=i.id AND t.currency=i.currency AND ((i.invoice_type='sales' AND t.transaction_type='collection' AND t.direction='credit') OR (i.invoice_type='purchase' AND t.transaction_type='supplier_payment' AND t.direction='debit'))),0),2) remaining FROM invoices i WHERE i.status='issued' AND i.invoice_type IN ('sales','purchase') ORDER BY i.id DESC LIMIT 200")->fetchAll();
+  $openInvoices=$db->query("SELECT i.id,i.invoice_number,i.invoice_type,i.currency,i.customer_id,i.supplier_id,i.grand_total,ROUND(i.grand_total-COALESCE((SELECT SUM(t.amount) FROM financial_transactions t WHERE t.invoice_id=i.id AND t.currency=i.currency AND ((i.invoice_type='sales' AND t.transaction_type='collection' AND t.direction='credit') OR (i.invoice_type='purchase' AND t.transaction_type='supplier_payment' AND t.direction='debit'))),0)-COALESCE((SELECT SUM(a.amount) FROM financial_advance_allocations a WHERE a.invoice_id=i.id),0),2) remaining FROM invoices i WHERE i.status='issued' AND i.invoice_type IN ('sales','purchase') ORDER BY i.id DESC LIMIT 200")->fetchAll();
+  $advances=$db->query("SELECT t.id,t.party_type,t.party_id,t.currency,t.transaction_type,t.amount,ROUND(t.amount-COALESCE((SELECT SUM(a.amount) FROM financial_advance_allocations a WHERE a.financial_transaction_id=t.id),0),2) remaining FROM financial_transactions t WHERE t.invoice_id IS NULL AND t.transaction_type IN ('collection','supplier_payment') AND t.party_id IS NOT NULL HAVING remaining>0 ORDER BY t.id DESC LIMIT 200")->fetchAll();
   $q=trim((string)($_GET['q']??''));$type=in_array($_GET['type']??'', ['income','expense','collection','supplier_payment','transfer_in','transfer_out'],true)?$_GET['type']:'';
   if($action==='account'){$id=max(0,(int)($_GET['id']??0));$st=$db->prepare("SELECT a.*,(a.opening_balance+COALESCE(SUM(CASE WHEN t.direction='credit' THEN t.amount ELSE -t.amount END),0)) balance FROM financial_accounts a LEFT JOIN financial_transactions t ON t.account_id=a.id WHERE a.id=? GROUP BY a.id");$st->execute([$id]);$selected=$st->fetch();if(!$selected)self::notFound();$st=$db->prepare('SELECT * FROM financial_transactions WHERE account_id=? ORDER BY transaction_date DESC,id DESC LIMIT 200');$st->execute([$id]);$transactions=$st->fetchAll();}
   else{$where=[];$params=[];if($q!==''){$where[]='(t.reference_no LIKE ? OR t.description LIKE ? OR a.name LIKE ?)';$like='%'.$q.'%';array_push($params,$like,$like,$like);}if($type!==''){$where[]='t.transaction_type=?';$params[]=$type;}$sql=$where?' WHERE '.implode(' AND ',$where):'';$st=$db->prepare('SELECT t.*,a.name account_name FROM financial_transactions t JOIN financial_accounts a ON a.id=t.account_id'.$sql.' ORDER BY t.transaction_date DESC,t.id DESC LIMIT 150');$st->execute($params);$transactions=$st->fetchAll();}
