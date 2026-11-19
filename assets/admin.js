@@ -17,6 +17,9 @@
         button.setAttribute('aria-expanded', String(open));
     });
     backdrop.addEventListener('click', close);
+    window.addEventListener('resize', () => {
+        if (window.innerWidth > 820) close();
+    });
     document.addEventListener('keydown', event => {
         if (event.key === 'Escape') close();
     });
