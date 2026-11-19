@@ -28,6 +28,7 @@ final class FinanceController
      if($type==='collection'){$partyType='customer';$partyId=(int)($_POST['party_id']??0);$q=$db->prepare("SELECT id FROM customers WHERE id=? AND status='active'");$q->execute([$partyId]);if(!$q->fetchColumn())throw new RuntimeException('Tahsilat için aktif müşteri seçin.');}
      if($type==='supplier_payment'){$partyType='supplier';$partyId=(int)($_POST['party_id']??0);$q=$db->prepare("SELECT id FROM suppliers WHERE id=? AND status='active'");$q->execute([$partyId]);if(!$q->fetchColumn())throw new RuntimeException('Ödeme için aktif tedarikçi seçin.');}
      $invoiceId=max(0,(int)($_POST['invoice_id']??0));
+     if($invoiceId>0&&!preg_match('/^\\d{1,13}(?:\\.\\d{1,2})?$/',trim((string)($_POST['amount']??''))))throw new RuntimeException('Fatura ödemesi kuruş hassasiyetinde olmalıdır.');
      if($invoiceId>0){
       if(!in_array($type,['collection','supplier_payment'],true))throw new RuntimeException('Fatura yalnızca tahsilat veya tedarikçi ödemesine bağlanabilir.');
       $db->beginTransaction();
@@ -36,7 +37,7 @@ final class FinanceController
       if(!$invoice||$invoice['invoice_type']!==$expectedType||$invoice['status']!=='issued')throw new RuntimeException('Ödeme için açık ve uygun türde fatura seçin.');
       $expectedParty=(int)($type==='collection'?$invoice['customer_id']:$invoice['supplier_id']);
       if($partyId!==$expectedParty||$acc['currency']!==$invoice['currency'])throw new RuntimeException('Fatura, cari hesap ve para birimi eşleşmiyor.');
-      $q=$db->prepare('SELECT COALESCE(SUM(amount),0) FROM financial_transactions WHERE invoice_id=? AND transaction_type=? AND currency=?');$q->execute([$invoiceId,$type,$invoice['currency']]);
+      $q=$db->prepare('SELECT COALESCE(SUM(amount),0) FROM financial_transactions WHERE invoice_id=? AND transaction_type=? AND direction=? AND currency=?');$q->execute([$invoiceId,$type,$type==='collection'?'credit':'debit',$invoice['currency']]);
       $remaining=round((float)$invoice['grand_total']-(float)$q->fetchColumn(),2);
       if($amount>$remaining+0.000001)throw new RuntimeException('Ödeme tutarı kalan fatura bakiyesini aşamaz.');
      }
