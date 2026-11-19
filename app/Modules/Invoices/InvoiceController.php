@@ -21,7 +21,16 @@ final class InvoiceController
      if($kind==='purchase'){$q=$db->prepare("SELECT * FROM purchase_orders WHERE id=? AND status='received'");$q->execute([$source]);$src=$q->fetch();if(!$src)throw new RuntimeException('Fatura için mal kabulü yapılmış satın alma siparişi seçin.');$q=$db->prepare('SELECT * FROM purchase_order_items WHERE purchase_order_id=?');$q->execute([$source]);$sourceItems=$q->fetchAll();$customerId=null;$supplierId=(int)$src['supplier_id'];$sub=(float)$src['subtotal'];$tax=(float)$src['tax_total'];$total=(float)$src['grand_total'];$currency=(string)$src['currency'];$discountTotal=0.0;}
      else{$q=$db->prepare("SELECT * FROM orders WHERE id=? AND customer_id IS NOT NULL AND status IN ('confirmed','processing','shipped','completed')");$q->execute([$source]);$src=$q->fetch();if(!$src)throw new RuntimeException('Fatura için müşterili ve onaylanmış bir satış siparişi seçin.');$q=$db->prepare('SELECT * FROM order_items WHERE order_id=?');$q->execute([$source]);$sourceItems=$q->fetchAll();$customerId=(int)$src['customer_id'];$supplierId=null;$sub=(float)$src['subtotal'];$tax=(float)$src['tax_total'];$total=(float)$src['grand_total'];$currency=(string)$src['currency'];$discountTotal=(float)($src['discount_total']??0);}
      if(!$sourceItems)throw new RuntimeException('Kaynak belgede faturalandırılabilir ürün kalemi yok.');
-     $db->beginTransaction();$tmp='TMP-'.bin2hex(random_bytes(8));$number='FTR-'.date('Y').'-'.str_pad((string)random_int(1,999999),6,'0',STR_PAD_LEFT);
+     $db->beginTransaction();
+     // Lock the source document to serialize concurrent invoice creation requests.
+     $sourceTable=$kind==='purchase'?'purchase_orders':'orders';
+     $lock=$db->prepare('SELECT id FROM '.$sourceTable.' WHERE id=? FOR UPDATE');$lock->execute([$source]);
+     if(!$lock->fetchColumn())throw new RuntimeException('Kaynak belge bulunamadı.');
+     $sourceColumn=$kind==='purchase'?'source_purchase_id':'source_order_id';
+     $duplicate=$db->prepare('SELECT id FROM invoices WHERE '.$sourceColumn.'=? AND invoice_type=? AND status<>\'cancelled\' LIMIT 1');
+     $duplicate->execute([$source,$kind]);
+     if($duplicate->fetchColumn())throw new RuntimeException('Bu kaynak belge için zaten aktif bir fatura var.');
+     $tmp='TMP-'.bin2hex(random_bytes(8));$number='FTR-'.date('Y').'-'.str_pad((string)random_int(1,999999),6,'0',STR_PAD_LEFT);
      $q=$db->prepare('INSERT INTO invoices (invoice_number,invoice_type,status,customer_id,supplier_id,source_order_id,source_purchase_id,issue_date,due_date,currency,subtotal,tax_total,discount_total,grand_total,notes,created_by,created_at) VALUES (?,?,\'draft\',?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())');
      $q->execute([$tmp,$kind,$customerId,$supplierId,$kind==='purchase'?null:$source,$kind==='purchase'?$source:null,date('Y-m-d'),$due?:null,$currency,$sub,$tax,$discountTotal,$total,$notes?:null,(int)$admin['id']]);
      $invoiceId=(int)$db->lastInsertId();$number='FTR-'.date('Y').'-'.str_pad((string)$invoiceId,6,'0',STR_PAD_LEFT);$db->prepare('UPDATE invoices SET invoice_number=? WHERE id=?')->execute([$number,$invoiceId]);
