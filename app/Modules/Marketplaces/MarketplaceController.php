@@ -46,7 +46,7 @@ final class MarketplaceController
      if(!$items)throw new RuntimeException('Gönderilecek eşleştirilmiş ürün bulunamadı. Ürünlerin barkod ve satış fiyatlarını kontrol edin.');
      $body=['items'=>$items];$response=self::request($conn,'POST','/integration/inventory/sellers/'.rawurlencode($conn['seller_id']).'/products/price-and-inventory',$body);
      $batch=(string)($response['batchRequestId']??'');if($batch==='')throw new RuntimeException('Pazaryeri yanıtında batchRequestId bulunamadı.');
-     $db->prepare("INSERT INTO marketplace_sync_jobs (connection_id,job_type,status,batch_request_id,item_count,request_summary,response_body,created_by,created_at) VALUES (?,'stock_price','queued',?,?,?,?,?,NOW())")->execute([$connection,count($items),json_encode(['items'=>count($items)],JSON_UNESCAPED_UNICODE),json_encode($response,JSON_UNESCAPED_UNICODE),(int)$admin['id']]);
+     $db->prepare("INSERT INTO marketplace_sync_jobs (connection_id,job_type,status,batch_request_id,item_count,request_summary,response_body,created_by,created_at) VALUES (?,'stock_price','queued',?,?,?,?,?,NOW())")->execute([$connection,$batch,count($items),json_encode(['items'=>count($items)],JSON_UNESCAPED_UNICODE),json_encode($response,JSON_UNESCAPED_UNICODE),(int)$admin['id']]);
      $db->prepare('UPDATE marketplace_product_map SET last_synced_at=NOW() WHERE connection_id=? AND sync_enabled=1')->execute([$connection]);
      kd_audit('marketplace.stock_price_submitted','marketplace_connection',$connection);$success='Stok/fiyat güncellemesi Trendyol kuyruğuna gönderildi. Batch: '.$batch;$selected=$connection;
     }
