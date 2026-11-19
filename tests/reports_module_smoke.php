@@ -15,4 +15,5 @@ foreach(["foreach(\$salesSummary as \$summary)","foreach(\$financeSummary as \$s
 foreach(["t.transaction_type='collection' AND t.direction='credit'", "t.transaction_type='supplier_payment' AND t.direction='debit'"] as $needle){if($reportController===false||strpos($reportController,$needle)===false){fwrite(STDERR,"Open invoice reconciliation filter missing {$needle}.\\n");exit(1);}}
 foreach(['oi.quantity*oi.unit_cost','oi.line_subtotal','GROUP BY o.currency ORDER BY o.currency','$grossMargins'] as $needle){if($reportController===false||strpos($reportController,$needle)===false){fwrite(STDERR,"Order gross margin report missing {$needle}.\\n");exit(1);}}
 if($reportView===false||strpos($reportView,'Sipariş brüt kârlılığı')===false||strpos($reportView,'İade, kargo ve işletme giderleri düşülmemiştir.')===false){fwrite(STDERR,"Order gross margin report disclosure missing.\\n");exit(1);}
+if(substr_count($reportController,'SELECT SUM(a.amount) FROM financial_advance_allocations a WHERE a.invoice_id=i.id')<3){fwrite(STDERR,"Receivable, payable and overdue reports must all deduct applied advances.\\n");exit(1);}
 echo "KodVadAll reports smoke tests passed.\n";
