@@ -46,7 +46,9 @@ final class InvoiceController
      $db->commit();kd_audit('invoice.status_changed','invoice',$invoiceId);self::go('view',$invoiceId);
     }
     if($form==='payment'){
-     $invoiceId=(int)($_POST['invoice_id']??0);$accountId=(int)($_POST['account_id']??0);$amount=(float)($_POST['amount']??0);$date=(string)($_POST['transaction_date']??date('Y-m-d'));
+     $invoiceId=(int)($_POST['invoice_id']??0);$accountId=(int)($_POST['account_id']??0);$amountInput=trim((string)($_POST['amount']??''));$date=(string)($_POST['transaction_date']??date('Y-m-d'));
+     if(!preg_match('/^\\d{1,13}(?:\\.\\d{1,2})?$/',$amountInput))throw new RuntimeException('Ödeme tutarı en fazla iki ondalık basamak içermelidir.');
+     $amount=(float)$amountInput;
      $db->beginTransaction();$q=$db->prepare('SELECT * FROM invoices WHERE id=? FOR UPDATE');$q->execute([$invoiceId]);$inv=$q->fetch();if(!$inv||$inv['status']!=='issued'||$inv['invoice_type']==='proforma')throw new RuntimeException('Bu fatura için ödeme alınamaz veya ödeme yapılamaz.');
      $direction=$inv['invoice_type']==='purchase'?'debit':'credit';$type=$inv['invoice_type']==='purchase'?'supplier_payment':'collection';
      $q=$db->prepare('SELECT COALESCE(SUM(amount),0) FROM financial_transactions WHERE invoice_id=? AND direction=?');$q->execute([$invoiceId,$direction]);$paid=(float)$q->fetchColumn();$remaining=(float)$inv['grand_total']-$paid;
