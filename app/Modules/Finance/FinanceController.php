@@ -27,9 +27,22 @@ final class FinanceController
      $partyType=null;$partyId=null;
      if($type==='collection'){$partyType='customer';$partyId=(int)($_POST['party_id']??0);$q=$db->prepare("SELECT id FROM customers WHERE id=? AND status='active'");$q->execute([$partyId]);if(!$q->fetchColumn())throw new RuntimeException('Tahsilat için aktif müşteri seçin.');}
      if($type==='supplier_payment'){$partyType='supplier';$partyId=(int)($_POST['party_id']??0);$q=$db->prepare("SELECT id FROM suppliers WHERE id=? AND status='active'");$q->execute([$partyId]);if(!$q->fetchColumn())throw new RuntimeException('Ödeme için aktif tedarikçi seçin.');}
+     $invoiceId=max(0,(int)($_POST['invoice_id']??0));
+     if($invoiceId>0){
+      if(!in_array($type,['collection','supplier_payment'],true))throw new RuntimeException('Fatura yalnızca tahsilat veya tedarikçi ödemesine bağlanabilir.');
+      $db->beginTransaction();
+      $q=$db->prepare('SELECT * FROM invoices WHERE id=? FOR UPDATE');$q->execute([$invoiceId]);$invoice=$q->fetch();
+      $expectedType=$type==='collection'?'sales':'purchase';
+      if(!$invoice||$invoice['invoice_type']!==$expectedType||$invoice['status']!=='issued')throw new RuntimeException('Ödeme için açık ve uygun türde fatura seçin.');
+      $expectedParty=(int)($type==='collection'?$invoice['customer_id']:$invoice['supplier_id']);
+      if($partyId!==$expectedParty||$acc['currency']!==$invoice['currency'])throw new RuntimeException('Fatura, cari hesap ve para birimi eşleşmiyor.');
+      $q=$db->prepare('SELECT COALESCE(SUM(amount),0) FROM financial_transactions WHERE invoice_id=? AND transaction_type=? AND currency=?');$q->execute([$invoiceId,$type,$invoice['currency']]);
+      $remaining=round((float)$invoice['grand_total']-(float)$q->fetchColumn(),2);
+      if($amount>$remaining+0.000001)throw new RuntimeException('Ödeme tutarı kalan fatura bakiyesini aşamaz.');
+     }
      $direction=in_array($type,['income','collection'],true)?'credit':'debit';
-     $db->beginTransaction();$db->prepare('INSERT INTO financial_transactions (account_id,transaction_type,direction,amount,currency,transaction_date,party_type,party_id,category,reference_no,description,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,NOW())')->execute([$account,$type,$direction,$amount,$acc['currency'],$date,$partyType,$partyId,trim((string)($_POST['category']??''))?:null,trim((string)($_POST['reference_no']??''))?:null,trim((string)($_POST['description']??''))?:null,(int)$admin['id']]);
-     $id=(int)$db->lastInsertId();\KodVadAll\Core\AccountingPostingService::postFinancialTransaction($db,$id,(int)$admin['id']);$db->commit();kd_audit('finance.transaction_created','financial_transaction',$id);self::go('list');
+     if(!$db->inTransaction())$db->beginTransaction();$db->prepare('INSERT INTO financial_transactions (account_id,invoice_id,transaction_type,direction,amount,currency,transaction_date,party_type,party_id,category,reference_no,description,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())')->execute([$account,$invoiceId?:null,$type,$direction,$amount,$acc['currency'],$date,$partyType,$partyId,trim((string)($_POST['category']??''))?:null,trim((string)($_POST['reference_no']??''))?:null,trim((string)($_POST['description']??''))?:null,(int)$admin['id']]);
+     $id=(int)$db->lastInsertId();\KodVadAll\Core\AccountingPostingService::postFinancialTransaction($db,$id,(int)$admin['id']);if($invoiceId>0&&$remaining-$amount<=0.000001)$db->prepare("UPDATE invoices SET status='paid',updated_at=NOW() WHERE id=?")->execute([$invoiceId]);$db->commit();kd_audit('finance.transaction_created','financial_transaction',$id);self::go('list');
     }
     if($form==='transfer'){
      $from=(int)($_POST['from_account']??0);$to=(int)($_POST['to_account']??0);$amount=(float)($_POST['amount']??0);$date=(string)($_POST['transaction_date']??date('Y-m-d'));
@@ -46,6 +59,7 @@ final class FinanceController
   $active=$db->query("SELECT id,name,currency,account_type FROM financial_accounts WHERE status='active' ORDER BY name")->fetchAll();
   $customers=$db->query("SELECT id,name FROM customers WHERE status='active' ORDER BY name")->fetchAll();
   $suppliers=$db->query("SELECT id,name FROM suppliers WHERE status='active' ORDER BY name")->fetchAll();
+  $openInvoices=$db->query("SELECT id,invoice_number,invoice_type,currency,customer_id,supplier_id,grand_total FROM invoices WHERE status='issued' AND invoice_type IN ('sales','purchase') ORDER BY id DESC LIMIT 200")->fetchAll();
   $q=trim((string)($_GET['q']??''));$type=in_array($_GET['type']??'', ['income','expense','collection','supplier_payment','transfer_in','transfer_out'],true)?$_GET['type']:'';
   if($action==='account'){$id=max(0,(int)($_GET['id']??0));$st=$db->prepare("SELECT a.*,(a.opening_balance+COALESCE(SUM(CASE WHEN t.direction='credit' THEN t.amount ELSE -t.amount END),0)) balance FROM financial_accounts a LEFT JOIN financial_transactions t ON t.account_id=a.id WHERE a.id=? GROUP BY a.id");$st->execute([$id]);$selected=$st->fetch();if(!$selected)self::notFound();$st=$db->prepare('SELECT * FROM financial_transactions WHERE account_id=? ORDER BY transaction_date DESC,id DESC LIMIT 200');$st->execute([$id]);$transactions=$st->fetchAll();}
   else{$where=[];$params=[];if($q!==''){$where[]='(t.reference_no LIKE ? OR t.description LIKE ? OR a.name LIKE ?)';$like='%'.$q.'%';array_push($params,$like,$like,$like);}if($type!==''){$where[]='t.transaction_type=?';$params[]=$type;}$sql=$where?' WHERE '.implode(' AND ',$where):'';$st=$db->prepare('SELECT t.*,a.name account_name FROM financial_transactions t JOIN financial_accounts a ON a.id=t.account_id'.$sql.' ORDER BY t.transaction_date DESC,t.id DESC LIMIT 150');$st->execute($params);$transactions=$st->fetchAll();}
