@@ -14,5 +14,5 @@ foreach(['amountInput', 'Ödeme tutarı en fazla iki ondalık basamak içermelid
 foreach(['invoice_id=? AND direction=? AND transaction_type=? AND currency=?', 'invoice_id=? AND transaction_type=? AND direction=? AND currency=?', 't.invoice_id=? AND t.transaction_type=? AND t.direction=? AND t.currency=?'] as $needle){if(strpos($controller,$needle)===false){fwrite(STDERR,"Invoice payment reconciliation filter missing: {$needle}.\\n");exit(1);}}
 $nav=require dirname(__DIR__).'/app/config/navigation.php';$found=false;foreach($nav as $g)foreach($g['items'] as $i)if(($i['page']??'')==='invoices')$found=true;
 if(!$found){fwrite(STDERR,"Invoice navigation missing.\n");exit(1);}
-if($controller===false||substr_count($controller,'SELECT COALESCE(SUM(amount),0) FROM financial_advance_allocations WHERE invoice_id=?')<3){fwrite(STDERR,"Invoice payment and cancellation advance reconciliation missing.\\n");exit(1);}
+if($controller===false||strpos($controller,"Avans mahsubu bulunan fatura iptal edilemez.")===false||substr_count($controller,'SELECT COALESCE(SUM(amount),0) FROM financial_advance_allocations WHERE invoice_id=?')<2){fwrite(STDERR,"Invoice payment and cancellation advance reconciliation missing.\\n");exit(1);}
 echo "KodVadAll invoice module smoke tests passed.\n";
