@@ -15,20 +15,19 @@ final class FinanceController
    try{
     $form=(string)($_POST['form_action']??'');
     if($form==='account'){
-     $name=trim((string)($_POST['name']??''));$type=(string)($_POST['account_type']??'cash');$currency=strtoupper((string)($_POST['currency']??'TRY'));$opening=(float)($_POST['opening_balance']??0);
+     $name=trim((string)($_POST['name']??''));$type=(string)($_POST['account_type']??'cash');$currency=strtoupper((string)($_POST['currency']??'TRY'));$opening=self::moneyAmount($_POST['opening_balance']??'0',true);
      if($name===''||mb_strlen($name)>150||!in_array($type,['cash','bank'],true)||!in_array($currency,['TRY','USD','EUR','GBP'],true)||$opening<0)throw new RuntimeException('Hesap bilgilerini kontrol edin.');
      $db->beginTransaction();$db->prepare('INSERT INTO financial_accounts (name,account_type,currency,opening_balance,bank_name,iban,notes,status,created_at) VALUES (?,?,?,?,?,?,?,\'active\',NOW())')->execute([$name,$type,$currency,$opening,trim((string)($_POST['bank_name']??''))?:null,trim((string)($_POST['iban']??''))?:null,trim((string)($_POST['notes']??''))?:null]);
      $id=(int)$db->lastInsertId();\KodVadAll\Core\AccountingPostingService::postFinancialAccountOpening($db,$id,(int)$admin['id']);$db->commit();kd_audit('finance.account_created','financial_account',$id);self::go('accounts');
     }
     if($form==='transaction'){
-     $account=(int)($_POST['account_id']??0);$type=(string)($_POST['transaction_type']??'');$amount=(float)($_POST['amount']??0);$date=(string)($_POST['transaction_date']??date('Y-m-d'));
+     $account=(int)($_POST['account_id']??0);$type=(string)($_POST['transaction_type']??'');$amount=self::moneyAmount($_POST['amount']??'');$date=(string)($_POST['transaction_date']??date('Y-m-d'));
      if(!in_array($type,['income','expense','collection','supplier_payment'],true)||$amount<=0||!preg_match('/^\d{4}-\d{2}-\d{2}$/',$date))throw new RuntimeException('İşlem türü, tutar veya tarih geçersiz.');
      $q=$db->prepare("SELECT id,currency FROM financial_accounts WHERE id=? AND status='active'");$q->execute([$account]);$acc=$q->fetch();if(!$acc)throw new RuntimeException('Aktif bir kasa veya banka hesabı seçin.');
      $partyType=null;$partyId=null;
      if($type==='collection'){$partyType='customer';$partyId=(int)($_POST['party_id']??0);$q=$db->prepare("SELECT id FROM customers WHERE id=? AND status='active'");$q->execute([$partyId]);if(!$q->fetchColumn())throw new RuntimeException('Tahsilat için aktif müşteri seçin.');}
      if($type==='supplier_payment'){$partyType='supplier';$partyId=(int)($_POST['party_id']??0);$q=$db->prepare("SELECT id FROM suppliers WHERE id=? AND status='active'");$q->execute([$partyId]);if(!$q->fetchColumn())throw new RuntimeException('Ödeme için aktif tedarikçi seçin.');}
      $invoiceId=max(0,(int)($_POST['invoice_id']??0));
-     if($invoiceId>0&&!preg_match('/^\\d{1,13}(?:\\.\\d{1,2})?$/',trim((string)($_POST['amount']??''))))throw new RuntimeException('Fatura ödemesi kuruş hassasiyetinde olmalıdır.');
      if($invoiceId>0){
       if(!in_array($type,['collection','supplier_payment'],true))throw new RuntimeException('Fatura yalnızca tahsilat veya tedarikçi ödemesine bağlanabilir.');
       $db->beginTransaction();
@@ -65,6 +64,14 @@ final class FinanceController
   if($action==='account'){$id=max(0,(int)($_GET['id']??0));$st=$db->prepare("SELECT a.*,(a.opening_balance+COALESCE(SUM(CASE WHEN t.direction='credit' THEN t.amount ELSE -t.amount END),0)) balance FROM financial_accounts a LEFT JOIN financial_transactions t ON t.account_id=a.id WHERE a.id=? GROUP BY a.id");$st->execute([$id]);$selected=$st->fetch();if(!$selected)self::notFound();$st=$db->prepare('SELECT * FROM financial_transactions WHERE account_id=? ORDER BY transaction_date DESC,id DESC LIMIT 200');$st->execute([$id]);$transactions=$st->fetchAll();}
   else{$where=[];$params=[];if($q!==''){$where[]='(t.reference_no LIKE ? OR t.description LIKE ? OR a.name LIKE ?)';$like='%'.$q.'%';array_push($params,$like,$like,$like);}if($type!==''){$where[]='t.transaction_type=?';$params[]=$type;}$sql=$where?' WHERE '.implode(' AND ',$where):'';$st=$db->prepare('SELECT t.*,a.name account_name FROM financial_transactions t JOIN financial_accounts a ON a.id=t.account_id'.$sql.' ORDER BY t.transaction_date DESC,t.id DESC LIMIT 150');$st->execute($params);$transactions=$st->fetchAll();}
   $pageTitle='Finans & Ön Muhasebe';ob_start();require KD_ROOT.'/app/Views/finance/index.php';$content=ob_get_clean();require KD_ROOT.'/app/Views/layouts/admin.php';
+ }
+ private static function moneyAmount(mixed $value,bool $allowZero=false):float
+ {
+  $raw=trim((string)$value);
+  if(!preg_match('/^\\d{1,13}(?:\\.\\d{1,2})?$/D',$raw))throw new RuntimeException('Tutar en fazla iki ondalık basamak içeren geçerli bir sayı olmalıdır.');
+  $amount=(float)$raw;
+  if($amount<0||(!$allowZero&&$amount<=0))throw new RuntimeException('Tutar sıfırdan büyük olmalıdır.');
+  return $amount;
  }
  private static function go(string $action='list',int $id=0):never{$u='index.php?page=finance';if($action!=='list')$u.='&action='.$action;if($id)$u.='&id='.$id;header('Location: '.$u,true,303);exit;}
  private static function notFound():never{http_response_code(404);exit('Finans hesabı bulunamadı.');}
