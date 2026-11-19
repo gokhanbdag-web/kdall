@@ -17,7 +17,7 @@ final class PartyLedgerService
   $q->execute([$party,$id,$paymentType,$direction]);
   foreach($q->fetchAll() as $r){$currency=$r['currency'];$totals[$currency]??=['invoiced'=>0.0,'paid'=>0.0];$totals[$currency]['paid']=(float)$r['total'];}
   ksort($totals);
-  $q=$db->prepare("SELECT id,invoice_number reference_no,invoice_date entry_date,currency,grand_total amount,'invoice' entry_type FROM invoices WHERE {$column}=? AND invoice_type=? AND status IN ('issued','paid') ORDER BY id DESC LIMIT 100");
+  $q=$db->prepare("SELECT id,invoice_number reference_no,issue_date entry_date,currency,grand_total amount,'invoice' entry_type FROM invoices WHERE {$column}=? AND invoice_type=? AND status IN ('issued','paid') ORDER BY id DESC LIMIT 100");
   $q->execute([$id,$invoiceType]);$entries=$q->fetchAll();
   $q=$db->prepare("SELECT id,COALESCE(NULLIF(reference_no,''),CONCAT('FIN-',id)) reference_no,transaction_date entry_date,currency,amount,'payment' entry_type FROM financial_transactions WHERE party_type=? AND party_id=? AND transaction_type=? AND direction=? ORDER BY id DESC LIMIT 100");
   $q->execute([$party,$id,$paymentType,$direction]);$entries=array_merge($entries,$q->fetchAll());
