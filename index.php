@@ -247,7 +247,7 @@ if ($page === 'settings') {
 if ($page !== 'dashboard') {
     http_response_code(404);
     $pageTitle = 'Sayfa bulunamadı';
-    $content = '<section class="panel"><h2>Bu modül henüz etkinleştirilmedi.</h2><p class="muted">Modül geliştirme sırası geldiğinde bu alan aktif edilecek.</p></section>';
+    $content = '<section class="panel"><h2>İstenen yönetim sayfası bulunamadı.</h2><p class="muted">Sol menüden erişilebilir bir modül seçin.</p></section>';
     require KD_ROOT . '/app/Views/layouts/admin.php';
     exit;
 }
