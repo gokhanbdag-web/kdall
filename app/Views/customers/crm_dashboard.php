@@ -1,5 +1,17 @@
 <?php declare(strict_types=1); ?>
 <section class="module-toolbar"><div><h2>CRM Merkezi</h2><p class="module-intro">Tüm müşterilerin satış fırsatları, ilgili kişileri ve takipleri.</p></div><a class="btn secondary" href="index.php?page=customers">Müşteri listesi</a></section>
+<section class="panel"><h3>CRM arama ve filtreleme</h3><form method="get" class="filter-bar">
+<input type="hidden" name="page" value="customers"><input type="hidden" name="action" value="crm_dashboard">
+<label>Arama <input type="search" name="q" value="<?= kd_e($q) ?>" placeholder="Müşteri, kişi veya kayıt adı"></label>
+<label>Müşteri ID <input type="number" min="1" name="customer_id" value="<?= $customerId?:'' ?>"></label>
+<label>Fırsat aşaması <select name="stage"><option value="">Tümü</option><?php foreach (['lead','qualified','proposal','negotiation','won','lost'] as $option): ?><option value="<?= kd_e($option) ?>" <?= $stage===$option?'selected':'' ?>><?= kd_e($option) ?></option><?php endforeach; ?></select></label>
+<label>Takip durumu <select name="status"><option value="">Tümü</option><option value="open" <?= $status==='open'?'selected':'' ?>>Açık</option><option value="done" <?= $status==='done'?'selected':'' ?>>Tamamlandı</option></select></label>
+<label>Sorumlu kullanıcı ID <input type="number" min="1" name="assigned_user_id" value="<?= $assignedUserId?:'' ?>"></label>
+<label>Başlangıç <input type="date" name="from" value="<?= kd_e($from) ?>"></label><label>Bitiş <input type="date" name="to" value="<?= kd_e($to) ?>"></label>
+<label>En az tutar <input type="number" min="0" step="0.01" name="min_amount" value="<?= kd_e($minAmount) ?>"></label>
+<label>En fazla tutar <input type="number" min="0" step="0.01" name="max_amount" value="<?= kd_e($maxAmount) ?>"></label>
+<button class="btn primary" type="submit">Filtrele</button><a class="btn secondary" href="index.php?page=customers&amp;action=crm_dashboard">Temizle</a>
+</form><p class="module-intro">Aşama ve tutar fırsatlara; durum ve sorumlu takip kayıtlarına uygulanır. Tarih filtresi fırsat oluşturma ve takip son tarihine uygulanır.</p></section>
 <section class="panel"><h3>Genel görünüm</h3><div class="table-wrap"><table class="data-table"><tbody>
 <?php foreach (['customers'=>'Müşteriler','contacts'=>'İlgili kişiler','opportunities'=>'Satış fırsatları','followups'=>'Takipler','open_followups'=>'Açık takipler','overdue'=>'Geciken takipler'] as $key=>$label): ?><tr><th><?= kd_e($label) ?></th><td><?= (int)$stats[$key] ?></td></tr><?php endforeach; ?>
 </tbody></table></div></section>
