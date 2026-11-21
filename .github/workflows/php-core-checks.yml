@@ -54,6 +54,8 @@ jobs:
         run: php tests/admin_shell_smoke.php
       - name: Run CRM customer smoke tests
         run: php tests/customer_module_smoke.php
+      - name: Run CRM workspace smoke tests
+        run: php tests/crm_workspace_smoke.php
       - name: Run product inventory smoke tests
         run: php tests/product_module_smoke.php
       - name: Run sales order smoke tests
