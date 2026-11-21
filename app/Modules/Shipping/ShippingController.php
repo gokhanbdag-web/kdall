@@ -8,6 +8,13 @@ use Throwable;
 final class ShippingController
 {
  private const STATUSES=['pending'=>'Bekliyor','preparing'=>'Hazırlanıyor','shipped'=>'Kargoya verildi','in_transit'=>'Dağıtımda','delivered'=>'Teslim edildi','returned'=>'İade edildi','cancelled'=>'İptal'];
+ private static function validShippingNumber(mixed $value,int $precision):bool
+ {
+  if(!is_scalar($value)||is_bool($value))return false;
+  $raw=trim((string)$value);
+  if(!preg_match('/^\\d{1,9}(?:\\.\\d{1,'.$precision.'})?$/D',$raw))return false;
+  return is_finite((float)$raw)&&(float)$raw<=1000000000;
+ }
  public static function handle(PDO $db,array $admin):void
  {
   kd_require_permission('shipments.view');$action=(string)($_GET['action']??'list');$id=max(0,(int)($_GET['id']??0));$errors=[];
@@ -21,9 +28,9 @@ final class ShippingController
      $db->prepare("INSERT INTO shipping_carriers (name,tracking_url_template,status,created_at) VALUES (?,?, 'active',NOW())")->execute([$name,$url?:null]);$cid=(int)$db->lastInsertId();kd_audit('shipping.carrier_created','shipping_carrier',$cid);self::go('carriers');
     }
     if($form==='shipment'){
-     $orderId=(int)($_POST['order_id']??0);$carrierId=(int)($_POST['carrier_id']??0);$tracking=trim((string)($_POST['tracking_number']??''));$cost=(float)($_POST['shipping_cost']??0);$weight=(float)($_POST['weight']??0);$packages=(int)($_POST['package_count']??1);
+     $orderId=(int)($_POST['order_id']??0);$carrierId=(int)($_POST['carrier_id']??0);$tracking=trim((string)($_POST['tracking_number']??''));$rawCost=$_POST['shipping_cost']??0;$rawWeight=$_POST['weight']??0;$rawPackages=$_POST['package_count']??1;if(!self::validShippingNumber($rawCost,2)||!self::validShippingNumber($rawWeight,3)||!preg_match('/^[1-9][0-9]{0,2}$/D',(string)$rawPackages))throw new RuntimeException('Kargo bedeli, ağırlık veya paket sayısı geçersiz.');$cost=(float)$rawCost;$weight=(float)$rawWeight;$packages=(int)$rawPackages;
      if(!is_finite($cost)||!is_finite($weight)||$cost<0||$weight<0||$packages<1||$packages>100)throw new RuntimeException('Kargo bedeli, ağırlık veya paket sayısı geçersiz.');
-     $db->beginTransaction();$q=$db->prepare("SELECT id,order_number,status FROM orders WHERE id=? AND status IN ('confirmed','processing') FOR UPDATE");$q->execute([$orderId]);$order=$q->fetch();if(!$order)throw new RuntimeException('Kargoya hazırlanabilecek onaylı bir sipariş seçin.');
+     $db->beginTransaction();$q=$db->prepare("SELECT id,order_number,status FROM orders WHERE id=? AND status IN ('confirmed','processing') FOR UPDATE");$q->execute([$orderId]);$order=$q->fetch();if(!$order)throw new RuntimeException('Kargoya hazırlanabilecek onaylı bir sipariş seçin.');$existing=$db->prepare("SELECT COUNT(*) FROM shipments WHERE order_id=? AND status<>'cancelled'");$existing->execute([$orderId]);if((int)$existing->fetchColumn()>0)throw new RuntimeException('Bu sipariş için zaten aktif bir gönderi var.');
      if($carrierId>0){$q=$db->prepare("SELECT id FROM shipping_carriers WHERE id=? AND status='active'");$q->execute([$carrierId]);if(!$q->fetchColumn())throw new RuntimeException('Aktif kargo firması seçin.');}
      $tmp='TMP-'.bin2hex(random_bytes(8));$q=$db->prepare("INSERT INTO shipments (shipment_number,order_id,carrier_id,tracking_number,status,shipping_cost,weight,package_count,notes,created_by,created_at) VALUES (?,?,?,?,'pending',?,?,?,?,?,NOW())");$q->execute([$tmp,$orderId,$carrierId?:null,$tracking?:null,$cost,$weight,$packages,trim((string)($_POST['notes']??''))?:null,(int)$admin['id']]);$sid=(int)$db->lastInsertId();$number='KRG-'.date('Y').'-'.str_pad((string)$sid,6,'0',STR_PAD_LEFT);$db->prepare('UPDATE shipments SET shipment_number=? WHERE id=?')->execute([$number,$sid]);$db->prepare('INSERT INTO shipment_events (shipment_id,from_status,to_status,note,user_id,created_at) VALUES (?,NULL,?,?,?,NOW())')->execute([$sid,'pending','Gönderi kaydı oluşturuldu',(int)$admin['id']]);$db->commit();kd_audit('shipping.shipment_created','shipment',$sid);self::go('view',$sid);
     }
