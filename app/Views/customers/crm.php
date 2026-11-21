@@ -14,6 +14,33 @@
 <?php foreach ($data['followups'] as $item): ?><p><?= kd_e($item['title']) ?> · <?= kd_e($item['due_at']) ?> · <?= kd_e($item['status']) ?><?php if (kd_can('customers.manage')): ?><form method="post"><?= kd_csrf_field() ?><input type="hidden" name="kind" value="<?= $item['status']==='done'?'reopen':'done' ?>"><input type="hidden" name="item_id" value="<?= (int)$item['id'] ?>"><button class="btn secondary"><?= $item['status']==='done'?'Yeniden aç':'Tamamla' ?></button></form><?php endif; ?></p><?php endforeach; ?>
 <?php if (kd_can('customers.manage')): ?><form method="post"><?= kd_csrf_field() ?><input type="hidden" name="kind" value="followup"><label>Başlık<input name="title" maxlength="190" required></label><label>Tarih<input type="datetime-local" name="due_at" required></label><button class="btn primary">Takip ekle</button></form><?php endif; ?>
 </section>
+<section class="panel"><h3>Takip ve satış fırsatı ilişkileri</h3>
+<?php if (kd_can('customers.manage')): ?>
+<?php foreach ($data['followups'] as $item): ?>
+<form method="post">
+<?= kd_csrf_field() ?>
+<input type="hidden" name="kind" value="link_followup_opportunity">
+<input type="hidden" name="item_id" value="<?= (int)$item['id'] ?>">
+<label><?= kd_e($item['title']) ?>
+<select name="opportunity_id">
+<option value="0">Bağlantı yok</option>
+<?php foreach ($data['opportunities'] as $opportunity): ?>
+<option value="<?= (int)$opportunity['id'] ?>" <?= (int)($item['opportunity_id']??0)===(int)$opportunity['id']?'selected':'' ?>><?= kd_e($opportunity['title']) ?></option>
+<?php endforeach; ?>
+</select></label>
+<button class="btn secondary" type="submit">Bağlantıyı kaydet</button>
+</form>
+<?php endforeach; ?>
+<?php else: ?>
+<?php foreach ($data['followups'] as $item): ?>
+<?php foreach ($data['opportunities'] as $opportunity): ?>
+<?php if ((int)($item['opportunity_id']??0)===(int)$opportunity['id']): ?>
+<p><?= kd_e($item['title']) ?> — <?= kd_e($opportunity['title']) ?></p>
+<?php endif; ?>
+<?php endforeach; ?>
+<?php endforeach; ?>
+<?php endif; ?>
+</section>
 <section class="panel"><h3>Diğer ERP işlemleri</h3><p><a class="btn secondary" href="index.php?page=quotes">Teklifler</a> <a class="btn secondary" href="index.php?page=tasks">Görevler</a> <a class="btn secondary" href="index.php?page=customers&action=view&id=<?= (int)$id ?>">Cari hesap ve görüşme geçmişi</a></p></section>
 
 <section class="panel"><h3>ERP bağlantıları</h3>
