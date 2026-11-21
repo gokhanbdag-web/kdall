@@ -25,3 +25,14 @@
 <?php foreach ($data['followups'] as $item): ?><form method="post"><?= kd_csrf_field() ?><input type="hidden" name="kind" value="link_task"><input type="hidden" name="item_id" value="<?= (int)$item['id'] ?>"><label><?= kd_e($item['title']) ?><select name="task_id"><?php foreach ($tasks as $task): ?><option value="<?= (int)$task['id'] ?>" <?= (int)$item['task_id']===(int)$task['id']?'selected':'' ?>><?= kd_e($task['title']) ?></option><?php endforeach; ?></select></label><button class="btn secondary">Göreve bağla</button></form><?php endforeach; ?>
 <?php endif; ?>
 </section>
+
+<section class="panel"><h3>Kayıt düzenleme</h3>
+<?php if (kd_can('customers.manage')): ?>
+<h4>İlgili kişiler</h4>
+<?php foreach ($data['contacts'] as $item): ?><form method="post"><?= kd_csrf_field() ?><input type="hidden" name="kind" value="edit_contact"><input type="hidden" name="item_id" value="<?= (int)$item['id'] ?>"><label>Ad<input name="title" maxlength="190" required value="<?= kd_e($item['name']) ?>"></label><label>Görev<input name="role" maxlength="120" value="<?= kd_e($item['role']) ?>"></label><label>E-posta<input type="email" name="email" value="<?= kd_e($item['email']) ?>"></label><label>Telefon<input name="phone" maxlength="40" value="<?= kd_e($item['phone']) ?>"></label><button class="btn secondary">Kişiyi güncelle</button></form><?php endforeach; ?>
+<h4>Satış fırsatları</h4>
+<?php foreach ($data['opportunities'] as $item): ?><form method="post"><?= kd_csrf_field() ?><input type="hidden" name="kind" value="edit_opportunity"><input type="hidden" name="item_id" value="<?= (int)$item['id'] ?>"><label>Başlık<input name="title" maxlength="190" required value="<?= kd_e($item['title']) ?>"></label><label>Tutar<input type="number" name="amount" step="0.01" min="0" required value="<?= kd_e($item['amount']) ?>"></label><label>Aşama<select name="stage"><?php foreach (['lead'=>'Potansiyel','qualified'=>'Nitelikli','proposal'=>'Teklif','negotiation'=>'Görüşme','won'=>'Kazanıldı','lost'=>'Kaybedildi'] as $stage=>$label): ?><option value="<?= kd_e($stage) ?>" <?= $stage===$item['stage']?'selected':'' ?>><?= kd_e($label) ?></option><?php endforeach; ?></select></label><button class="btn secondary">Fırsatı güncelle</button></form><?php endforeach; ?>
+<h4>Takipler</h4>
+<?php foreach ($data['followups'] as $item): ?><form method="post"><?= kd_csrf_field() ?><input type="hidden" name="kind" value="edit_followup"><input type="hidden" name="item_id" value="<?= (int)$item['id'] ?>"><label>Başlık<input name="title" maxlength="190" required value="<?= kd_e($item['title']) ?>"></label><label>Tarih<input type="datetime-local" name="due_at" required value="<?= kd_e(date('Y-m-d\TH:i',strtotime($item['due_at']))) ?>"></label><button class="btn secondary">Takibi güncelle</button></form><?php endforeach; ?>
+<?php endif; ?>
+</section>
