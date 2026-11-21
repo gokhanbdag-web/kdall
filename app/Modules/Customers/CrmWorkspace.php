@@ -57,6 +57,20 @@ final class CrmWorkspace {
       $date=(string)($_POST['due_at']??'');$parsed=\DateTimeImmutable::createFromFormat('!Y-m-d\TH:i',$date);
       if ($title==='' || mb_strlen($title)>190 || !$parsed || $parsed->format('Y-m-d\TH:i')!==$date) {$errors[]='Takip bilgileri geçersiz.';}
       else {$pdo->prepare('UPDATE crm_followups SET title=?,due_at=? WHERE id=? AND customer_id=?')->execute([$title,$parsed->format('Y-m-d H:i:s'),(int)($_POST['item_id']??0),$id]);}
+     } elseif ($kind==='delete_opportunity' || $kind==='delete_followup') {
+      $itemId=(int)($_POST['item_id']??0);
+      if ($itemId<1 || (string)($_POST['confirm_delete']??'')!=='1') {$errors[]='Silme işlemi onaylanmalıdır.';}
+      else {
+       $table=$kind==='delete_opportunity'?'crm_opportunities':'crm_followups';
+       $check=$pdo->prepare("SELECT id FROM {$table} WHERE id=? AND customer_id=?");
+       $check->execute([$itemId,$id]);
+       if (!$check->fetchColumn()) {$errors[]='Silinecek kayıt bu müşteriye ait değil.';}
+       else {
+        $delete=$pdo->prepare("DELETE FROM {$table} WHERE id=? AND customer_id=?");
+        $delete->execute([$itemId,$id]);
+        kd_audit('crm.'.$kind,$table,$itemId);
+       }
+      }
      } elseif ($kind==='delete_contact') {
       $pdo->prepare('DELETE FROM crm_contacts WHERE id=? AND customer_id=?')->execute([(int)($_POST['item_id']??0),$id]);
      } else {$errors[]='İşlem geçersiz.';}
