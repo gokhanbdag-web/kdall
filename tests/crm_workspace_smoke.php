@@ -26,4 +26,16 @@ $controller=file_get_contents($root.'/app/Modules/Customers/CrmWorkspace.php');
 foreach (['delete_opportunity','delete_followup','confirm_delete','customer_id=?','kd_audit'] as $required) {
  if (!str_contains($controller,$required) || (!str_contains($view,$required) && in_array($required,['delete_opportunity','delete_followup','confirm_delete'],true))) {fwrite(STDERR,"CRM deletion missing: $required\n");exit(1);}
 }
+$dashboard=file_get_contents($root.'/app/Modules/Customers/CrmDashboard.php');
+$dashboardView=file_get_contents($root.'/app/Views/customers/crm_dashboard.php');
+$customerController=file_get_contents($root.'/app/Modules/Customers/CustomerController.php');
+foreach (['crm_dashboard','CrmDashboard::handle'] as $required) {
+ if (!str_contains($customerController,$required)) {fwrite(STDERR,"CRM dashboard route missing: $required\n");exit(1);}
+}
+foreach (['crm_opportunities','crm_followups','crm_contacts','customers.view'] as $required) {
+ if (!str_contains($dashboard,$required)) {fwrite(STDERR,"CRM dashboard query missing: $required\n");exit(1);}
+}
+foreach (['$opportunities','$followups','$contacts','CRM Merkezi'] as $required) {
+ if (!str_contains($dashboardView,$required)) {fwrite(STDERR,"CRM dashboard UI missing: $required\n");exit(1);}
+}
 echo "CRM workspace smoke tests passed\n";
