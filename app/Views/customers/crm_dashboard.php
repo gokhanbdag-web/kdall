@@ -1,3 +1,4 @@
+<?php declare(strict_types=1); ?>
 <?php
 $crmPager=static function(string $key) use ($pagination): void {
  $meta=$pagination[$key];
@@ -12,7 +13,7 @@ $crmPager=static function(string $key) use ($pagination): void {
  echo '</div></div>';
 };
 ?>
-<?php declare(strict_types=1); ?>
+
 <section class="module-toolbar"><div><h2>CRM Merkezi</h2><p class="module-intro">Tüm müşterilerin satış fırsatları, ilgili kişileri ve takipleri.</p></div><a class="btn secondary" href="index.php?page=customers">Müşteri listesi</a></section>
 <section class="panel"><h3>CRM arama ve filtreleme</h3><form method="get" class="filter-bar">
 <input type="hidden" name="page" value="customers"><input type="hidden" name="action" value="crm_dashboard">
