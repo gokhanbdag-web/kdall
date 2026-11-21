@@ -193,6 +193,8 @@ jobs:
         run: php tests/calendar_module_smoke.php
       - name: Run quality module smoke tests
         run: php tests/quality_module_smoke.php
+      - name: Run accounting journal integrity tests
+        run: php tests/accounting_journal_integrity_smoke.php
       - name: Run accounting module smoke tests
         run: php tests/accounting_module_smoke.php
       - name: Run accounting reports smoke tests
