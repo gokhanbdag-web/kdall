@@ -18,4 +18,8 @@ $workspace=file_get_contents($root.'/app/Modules/Customers/CrmWorkspace.php');
 foreach (['kd_csrf_check()', "kd_require_permission('customers.manage')", "customer_id=?", 'link_quote','link_task','stage','reopen'] as $required) {
  if (!str_contains($workspace,$required)) {fwrite(STDERR,"CRM check failed: $required\n");exit(1);}
 }
+$view=file_get_contents($root.'/app/Views/customers/crm.php');
+foreach (['edit_contact','edit_opportunity','edit_followup','link_quote','link_task','Geciken açık takip'] as $required) {
+ if (!str_contains($view,$required)) {fwrite(STDERR,"CRM view missing: $required\n");exit(1);}
+}
 echo "CRM workspace smoke tests passed\n";
