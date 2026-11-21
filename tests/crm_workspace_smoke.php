@@ -22,4 +22,8 @@ $view=file_get_contents($root.'/app/Views/customers/crm.php');
 foreach (['edit_contact','edit_opportunity','edit_followup','link_quote','link_task','Geciken açık takip'] as $required) {
  if (!str_contains($view,$required)) {fwrite(STDERR,"CRM view missing: $required\n");exit(1);}
 }
+$controller=file_get_contents($root.'/app/Modules/Customers/CrmWorkspace.php');
+foreach (['delete_opportunity','delete_followup','confirm_delete','customer_id=?','kd_audit'] as $required) {
+ if (!str_contains($controller,$required) || (!str_contains($view,$required) && in_array($required,['delete_opportunity','delete_followup','confirm_delete'],true))) {fwrite(STDERR,"CRM deletion missing: $required\n");exit(1);}
+}
 echo "CRM workspace smoke tests passed\n";
