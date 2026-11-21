@@ -15,4 +15,5 @@ foreach(['invoice_id=? AND direction=? AND transaction_type=? AND currency=?', '
 $nav=require dirname(__DIR__).'/app/config/navigation.php';$found=false;foreach($nav as $g)foreach($g['items'] as $i)if(($i['page']??'')==='invoices')$found=true;
 if(!$found){fwrite(STDERR,"Invoice navigation missing.\n");exit(1);}
 if($controller===false||strpos($controller,"Avans mahsubu bulunan fatura iptal edilemez.")===false||substr_count($controller,'SELECT COALESCE(SUM(amount),0) FROM financial_advance_allocations WHERE invoice_id=?')<2){fwrite(STDERR,"Invoice payment and cancellation advance reconciliation missing.\\n");exit(1);}
+foreach(["status='active' FOR UPDATE","opening_balance","CASE WHEN direction='credit' THEN amount ELSE -amount END","Tedarikçi ödemesi için kasa/banka bakiyesi yetersiz."] as $needle){if(!str_contains($controller,$needle))throw new RuntimeException('Invoice account balance guard missing: '.$needle);}
 echo "KodVadAll invoice module smoke tests passed.\n";
