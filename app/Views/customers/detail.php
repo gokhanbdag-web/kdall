@@ -3,6 +3,7 @@ declare(strict_types=1);
 ?>
 <div class="module-toolbar"><div><p class="module-intro">Müşteri profili ve iletişim geçmişi.</p></div><div class="toolbar-actions"><a class="btn secondary action-link" href="index.php?page=customers">← Liste</a><?php if (kd_can('customers.manage')): ?><a class="btn primary action-link" href="index.php?page=customers&action=edit&id=<?= (int)$customer['id'] ?>">Düzenle</a><?php endif; ?></div></div>
 <?php if ($errors): ?><div class="alert"><?= kd_e(implode(' ',$errors)) ?></div><?php endif; ?>
+<p><a class="btn primary action-link" href="index.php?page=customers&amp;action=crm&amp;id=<?= (int)$customer['id'] ?>">CRM: İlgili kişiler, fırsatlar ve takipler</a></p>
 <div class="customer-detail-grid">
     <section class="panel customer-profile">
         <div class="profile-heading"><span class="profile-avatar"><?= kd_e(function_exists('mb_substr')?mb_strtoupper(mb_substr($customer['name'],0,1)):strtoupper(substr($customer['name'],0,1))) ?></span><div><h2><?= kd_e($customer['name']) ?></h2><span class="customer-code"><?= kd_e($customer['customer_code'] ?: 'Müşteri') ?></span></div><span class="customer-status <?= $customer['status']==='active'?'is-active':'is-inactive' ?>"><?= $customer['status']==='active'?'Aktif':'Pasif' ?></span></div>
