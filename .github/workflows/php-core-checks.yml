@@ -106,6 +106,8 @@ jobs:
         run: php tests/purchasing_operational_safety_smoke.php
       - name: Run purchasing module smoke tests
         run: php tests/purchasing_module_smoke.php
+      - name: Run finance transaction integrity tests
+        run: php tests/finance_transaction_integrity_smoke.php
       - name: Run finance module smoke tests
         run: php tests/finance_module_smoke.php
       - name: Run customer and supplier ledger smoke tests
