@@ -12,7 +12,7 @@ final class CrmWorkspace {
   if (($_SERVER['REQUEST_METHOD']??'')==='POST') {
    kd_csrf_check();kd_require_permission('customers.manage');
    $kind=(string)($_POST['kind']??'');$title=trim((string)($_POST['title']??''));
-   if ($title==='' || mb_strlen($title)>190) {$errors[]='Başlık 1-190 karakter olmalıdır.';}
+   if (in_array($kind,['contact','opportunity','followup'],true) && ($title==='' || mb_strlen($title)>190)) {$errors[]='Başlık 1-190 karakter olmalıdır.';}
    try {
     if (!$errors) {
      if ($kind==='contact') {
@@ -27,6 +27,14 @@ final class CrmWorkspace {
       $date=(string)($_POST['due_at']??'');$parsed=\DateTimeImmutable::createFromFormat('!Y-m-d\TH:i',$date);
       if (!$parsed || $parsed->format('Y-m-d\TH:i')!==$date) {$errors[]='Tarih geçersiz.';}
       else {$pdo->prepare('INSERT INTO crm_followups(customer_id,title,due_at,assigned_user_id) VALUES(?,?,?,?)')->execute([$id,$title,$parsed->format('Y-m-d H:i:s'),(int)$admin['id']]);}
+     } elseif ($kind==='stage') {
+      $stage=(string)($_POST['stage']??'');
+      if (!in_array($stage,['lead','qualified','proposal','negotiation','won','lost'],true)) {$errors[]='Aşama geçersiz.';}
+      else {$pdo->prepare('UPDATE crm_opportunities SET stage=?,updated_at=NOW() WHERE id=? AND customer_id=?')->execute([$stage,(int)($_POST['item_id']??0),$id]);}
+     } elseif ($kind==='done' || $kind==='reopen') {
+      $pdo->prepare('UPDATE crm_followups SET status=? WHERE id=? AND customer_id=?')->execute([$kind==='done'?'done':'open',(int)($_POST['item_id']??0),$id]);
+     } elseif ($kind==='delete_contact') {
+      $pdo->prepare('DELETE FROM crm_contacts WHERE id=? AND customer_id=?')->execute([(int)($_POST['item_id']??0),$id]);
      } else {$errors[]='İşlem geçersiz.';}
      if (!$errors) {kd_audit('crm.'.$kind,'customer',$id);header('Location: index.php?page=customers&action=crm&id='.$id,true,303);exit;}
     }
