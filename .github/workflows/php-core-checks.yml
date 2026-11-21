@@ -88,6 +88,8 @@ jobs:
         run: php tests/product_module_smoke.php
       - name: Run sales order operational validation tests
         run: php tests/order_operational_validation_smoke.php
+      - name: Run sales lifecycle integrity tests
+        run: php tests/sales_lifecycle_integrity_smoke.php
       - name: Run sales order smoke tests
         run: php tests/order_module_smoke.php
       - name: Run task management smoke tests
