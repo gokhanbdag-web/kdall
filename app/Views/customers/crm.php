@@ -76,3 +76,8 @@
 <?php foreach ($data['followups'] as $item): ?><form method="post"><?= kd_csrf_field() ?><input type="hidden" name="kind" value="edit_followup"><input type="hidden" name="item_id" value="<?= (int)$item['id'] ?>"><label>Başlık<input name="title" maxlength="190" required value="<?= kd_e($item['title']) ?>"></label><label>Tarih<input type="datetime-local" name="due_at" required value="<?= kd_e(date('Y-m-d\TH:i',strtotime($item['due_at']))) ?>"></label><button class="btn secondary">Takibi güncelle</button></form><?php endforeach; ?>
 <?php endif; ?>
 </section>
+
+<section class="panel"><h3>CRM işlem geçmişi</h3><div class="table-wrap"><table class="data-table"><thead><tr><th>Tarih</th><th>İşlem</th><th>Kayıt</th><th>Yapan</th><th>Değişiklik</th></tr></thead><tbody>
+<?php foreach ($history as $entry): ?><tr><td><?= kd_e($entry['created_at']) ?></td><td><?= kd_e($entry['action_key']) ?></td><td><?= kd_e($entry['entity_type']) ?> #<?= (int)$entry['entity_id'] ?></td><td><?= kd_e($entry['actor_name']??'Sistem') ?></td><td><?php $old=json_decode($entry['before_json']??'null',true);$new=json_decode($entry['after_json']??'null',true);$changed=[];foreach (array_unique(array_merge(array_keys($old??[]),array_keys($new??[]))) as $field) {if (($old[$field]??null)!==($new[$field]??null)) $changed[]=$field;} ?><?= kd_e(implode(', ',$changed)) ?></td></tr><?php endforeach; ?>
+<?php if (!$history): ?><tr><td colspan="5">Henüz işlem geçmişi bulunmuyor.</td></tr><?php endif; ?>
+</tbody></table></div></section>
