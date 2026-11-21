@@ -30,18 +30,21 @@ final class OrderController
                     $quantities=is_array($_POST['quantity']??null)?$_POST['quantity']:[];
                     $prices=is_array($_POST['unit_price']??null)?$_POST['unit_price']:[];
                     $taxes=is_array($_POST['tax_rate']??null)?$_POST['tax_rate']:[];
-                    $items=[];
+                    $items=[];$seenProducts=[];
                     foreach ($productIds as $i=>$rawId) {
                         $productId=(int)$rawId;
-                        $qty=(float)($quantities[$i]??0);
-                        if ($productId<1 && $qty<=0) continue;
-                        if ($productId<1 || $qty<=0) throw new RuntimeException('Ürün ve miktar bilgilerini kontrol edin.');
+                        $rawQty=$quantities[$i]??null;
+                        if ($productId<1 && ($rawQty===null || trim((string)$rawQty)==='')) continue;
+                        if ($productId<1 || !self::validOrderNumber($rawQty,3,false)) throw new RuntimeException('Ürün ve miktar bilgilerini kontrol edin.');
+                        if(isset($seenProducts[$productId]))throw new RuntimeException('Aynı ürün bir siparişte birden fazla satırda olamaz.');
+                        $seenProducts[$productId]=true;$qty=(float)$rawQty;
                         $stmt=$pdo->prepare("SELECT id,name,sku,sale_price,purchase_price,status FROM products WHERE id=? LIMIT 1");
                         $stmt->execute([$productId]);$product=$stmt->fetch();
                         if (!$product || $product['status']!=='active') throw new RuntimeException('Seçilen ürün bulunamadı veya aktif değil.');
-                        $price=(float)($prices[$i]??$product['sale_price']);
-                        $tax=(float)($taxes[$i]??0);
-                        if ($price<0 || $tax<0 || $tax>100) throw new RuntimeException('Fiyat veya vergi oranı geçersiz.');
+                        $rawPrice=$prices[$i]??$product['sale_price'];$rawTax=$taxes[$i]??0;
+                        if(!self::validOrderNumber($rawPrice,4,true)||!self::validOrderNumber($rawTax,2,true))throw new RuntimeException('Fiyat veya vergi oranı geçersiz.');
+                        $price=(float)$rawPrice;$tax=(float)$rawTax;
+                        if ($tax>100) throw new RuntimeException('Fiyat veya vergi oranı geçersiz.');
                         $subtotal=round($qty*$price,2);
                         $taxAmount=round($subtotal*$tax/100,2);
                         $items[]=[
@@ -56,9 +59,10 @@ final class OrderController
                         $check->execute([$customerId]);
                         if (!$check->fetchColumn()) throw new RuntimeException('Seçilen müşteri bulunamadı veya aktif değil.');
                     }
-                    $subtotal=array_sum(array_column($items,'subtotal'));
-                    $taxTotal=array_sum(array_column($items,'tax'));
-                    $grand=$subtotal+$taxTotal;
+                    $subtotal=round(array_sum(array_column($items,'subtotal')),2);
+                    $taxTotal=round(array_sum(array_column($items,'tax')),2);
+                    $grand=round($subtotal+$taxTotal,2);
+                    if(!is_finite($grand)||$grand>1000000000)throw new RuntimeException('Sipariş toplamı geçersiz.');
                     $couponCode=strtoupper(trim((string)($_POST['coupon_code']??'')));
                     $discountTotal=0.0;
                     $campaign=null;
@@ -189,6 +193,15 @@ final class OrderController
         $pageTitle='Satış & Siparişler';
         ob_start();require KD_ROOT.'/app/Views/orders/list.php';$content=ob_get_clean();
         require KD_ROOT.'/app/Views/layouts/admin.php';
+    }
+
+    private static function validOrderNumber(mixed $value,int $precision,bool $allowZero):bool
+    {
+        if(!is_scalar($value)||is_bool($value))return false;
+        $raw=trim((string)$value);
+        if(!preg_match('/^\\d{1,9}(?:\\.\\d{1,'.$precision.'})?$/D',$raw))return false;
+        $number=(float)$raw;
+        return is_finite($number)&&$number<=1000000000&&($allowZero?$number>=0:$number>0);
     }
 
     private static function validateTransition(string $from,string $to): void
