@@ -59,9 +59,7 @@ $workspace=file_get_contents($root.'/app/Modules/Customers/CrmWorkspace.php');
 foreach (['opp_page','follow_page','contact_page','COUNT(*)',' OFFSET ','$pagination'] as $required) {
  if (!str_contains($dashboard,$required)) {fwrite(STDERR,"CRM pagination missing: $required\n");exit(1);}
 }
-foreach (['contacts_page','opportunities_page','followups_page'] as $required) {
- if (!str_contains($workspace,$required) && !str_contains($workspace,"$key.'_page'")) {fwrite(STDERR,"CRM workspace pagination missing: $required\n");exit(1);}
-}
+if (!str_contains($workspace,"\$key.'_page'")) {fwrite(STDERR,"CRM workspace pagination key missing\n");exit(1);}
 foreach (['opp_page','follow_page','contact_page'] as $required) {
  if (!str_contains($dashboardView,$required)) {fwrite(STDERR,"CRM pagination UI missing: $required\n");exit(1);}
 }
