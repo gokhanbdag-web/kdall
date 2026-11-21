@@ -34,4 +34,10 @@ if ($migration === false || strpos($migration, 'CREATE TABLE IF NOT EXISTS custo
     exit(1);
 }
 
-echo "KodVadAll CRM customer smoke tests passed.\n";
+$controller = file_get_contents(dirname(__DIR__) . '/app/Modules/Customers/CustomerController.php');
+if ($controller === false || substr_count($controller, '$pdo->beginTransaction();') < 3 || substr_count($controller, '$pdo->commit();') < 3 || substr_count($controller, 'self::find($pdo, $customerId)') < 3) {
+    fwrite(STDERR, "CRM customer mutation consistency checks failed.\\n");
+    exit(1);
+}
+
+echo "KodVadAll CRM customer smoke tests passed.\\n";
