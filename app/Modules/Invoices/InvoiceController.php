@@ -55,7 +55,12 @@ final class InvoiceController
      $direction=$inv['invoice_type']==='purchase'?'debit':'credit';$type=$inv['invoice_type']==='purchase'?'supplier_payment':'collection';
      $q=$db->prepare('SELECT COALESCE(SUM(amount),0) FROM financial_transactions WHERE invoice_id=? AND direction=? AND transaction_type=? AND currency=?');$q->execute([$invoiceId,$direction,$type,$inv['currency']]);$paid=(float)$q->fetchColumn();$q=$db->prepare('SELECT COALESCE(SUM(amount),0) FROM financial_advance_allocations WHERE invoice_id=?');$q->execute([$invoiceId]);$allocated=(float)$q->fetchColumn();$remaining=round((float)$inv['grand_total']-$paid-$allocated,2);
      if($amount<=0||$amount>$remaining+0.000001||!preg_match('/^\d{4}-\d{2}-\d{2}$/',$date))throw new RuntimeException('Ödeme tutarı kalan fatura tutarını aşamaz.');
-     $q=$db->prepare("SELECT id,currency FROM financial_accounts WHERE id=? AND status='active'");$q->execute([$accountId]);$acc=$q->fetch();if(!$acc||$acc['currency']!==$inv['currency'])throw new RuntimeException('Fatura ile aynı para biriminde aktif hesap seçin.');
+     $q=$db->prepare("SELECT id,currency,opening_balance FROM financial_accounts WHERE id=? AND status='active' FOR UPDATE");$q->execute([$accountId]);$acc=$q->fetch();if(!$acc||$acc['currency']!==$inv['currency'])throw new RuntimeException('Fatura ile aynı para biriminde aktif hesap seçin.');
+     if($direction==='debit'){
+      $balanceQuery=$db->prepare("SELECT COALESCE(SUM(CASE WHEN direction='credit' THEN amount ELSE -amount END),0) FROM financial_transactions WHERE account_id=?");
+      $balanceQuery->execute([$accountId]);$available=round((float)$acc['opening_balance']+(float)$balanceQuery->fetchColumn(),2);
+      if($amount>$available+0.000001)throw new RuntimeException('Tedarikçi ödemesi için kasa/banka bakiyesi yetersiz.');
+     }
      $partyType=$type==='collection'?'customer':'supplier';$partyId=$type==='collection'?(int)$inv['customer_id']:(int)$inv['supplier_id'];
      $db->prepare('INSERT INTO financial_transactions (account_id,invoice_id,transaction_type,direction,amount,currency,transaction_date,party_type,party_id,reference_no,description,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,NOW())')->execute([$accountId,$invoiceId,$type,$direction,$amount,$inv['currency'],$date,$partyType,$partyId,$inv['invoice_number'],'Fatura '.$inv['invoice_number'].' ödemesi',(int)$admin['id']]);$transactionId=(int)$db->lastInsertId();\KodVadAll\Core\AccountingPostingService::postFinancialTransaction($db,$transactionId,(int)$admin['id']);
      if($remaining-$amount<=0.000001)$db->prepare("UPDATE invoices SET status='paid',updated_at=NOW() WHERE id=?")->execute([$invoiceId]);
