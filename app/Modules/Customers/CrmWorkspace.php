@@ -71,6 +71,10 @@ final class CrmWorkspace {
   $quotes=[];$tasks=[];
   if (kd_can('quotes.view')) {$stmt=$pdo->prepare('SELECT id,quote_number FROM quotes WHERE customer_id=? ORDER BY id DESC LIMIT 100');$stmt->execute([$id]);$quotes=$stmt->fetchAll();}
   if (kd_can('tasks.view')) {$tasks=$pdo->query('SELECT id,title FROM tasks ORDER BY id DESC LIMIT 100')->fetchAll();}
+  $stmt=$pdo->prepare("SELECT stage,COUNT(*) AS total,COALESCE(SUM(amount),0) AS value FROM crm_opportunities WHERE customer_id=? GROUP BY stage");
+  $stmt->execute([$id]);$pipeline=$stmt->fetchAll();
+  $stmt=$pdo->prepare("SELECT COUNT(*) FROM crm_followups WHERE customer_id=? AND status='open' AND due_at<NOW()");
+  $stmt->execute([$id]);$overdue=(int)$stmt->fetchColumn();
   $pageTitle='CRM: '.$customer['name'];ob_start();require KD_ROOT.'/app/Views/customers/crm.php';$content=ob_get_clean();require KD_ROOT.'/app/Views/layouts/admin.php';
  }
 }
