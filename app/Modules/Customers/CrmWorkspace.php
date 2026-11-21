@@ -96,9 +96,16 @@ final class CrmWorkspace {
     }
    } catch (Throwable $e) {error_log('CRM: '.$e->getMessage());$errors[]='İşlem başarısız.';}
   }
-  $data=[];
+  $data=[];$pagination=[];$perPage=25;
   foreach (['contacts'=>'crm_contacts','opportunities'=>'crm_opportunities','followups'=>'crm_followups'] as $key=>$table) {
-   $stmt=$pdo->prepare("SELECT * FROM {$table} WHERE customer_id=? ORDER BY id DESC LIMIT 200");$stmt->execute([$id]);$data[$key]=$stmt->fetchAll();
+   $count=$pdo->prepare("SELECT COUNT(*) FROM {$table} WHERE customer_id=?");
+   $count->execute([$id]);$total=(int)$count->fetchColumn();
+   $pages=max(1,(int)ceil($total/$perPage));
+   $page=min($pages,max(1,(int)($_GET[$key.'_page']??1)));
+   $pagination[$key]=['page'=>$page,'pages'=>$pages,'total'=>$total];
+   $offset=($page-1)*$perPage;
+   $stmt=$pdo->prepare("SELECT * FROM {$table} WHERE customer_id=? ORDER BY id DESC LIMIT {$perPage} OFFSET {$offset}");
+   $stmt->execute([$id]);$data[$key]=$stmt->fetchAll();
   }
   $quotes=[];$tasks=[];
   if (kd_can('quotes.view')) {$stmt=$pdo->prepare('SELECT id,quote_number FROM quotes WHERE customer_id=? ORDER BY id DESC LIMIT 100');$stmt->execute([$id]);$quotes=$stmt->fetchAll();}
