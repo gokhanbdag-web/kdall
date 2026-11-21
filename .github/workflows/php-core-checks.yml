@@ -86,6 +86,8 @@ jobs:
         run: php tests/crm_reminders_smoke.php
       - name: Run product inventory smoke tests
         run: php tests/product_module_smoke.php
+      - name: Run sales order operational validation tests
+        run: php tests/order_operational_validation_smoke.php
       - name: Run sales order smoke tests
         run: php tests/order_module_smoke.php
       - name: Run task management smoke tests
