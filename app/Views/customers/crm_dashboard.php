@@ -14,7 +14,7 @@ $crmPager=static function(string $key) use ($pagination): void {
 };
 ?>
 
-<section class="module-toolbar"><div><h2>CRM Merkezi</h2><p class="module-intro">Tüm müşterilerin satış fırsatları, ilgili kişileri ve takipleri.</p></div><a class="btn secondary" href="index.php?page=customers">Müşteri listesi</a></section>
+<section class="module-toolbar"><div><h2>CRM Merkezi</h2><p class="module-intro">Tüm müşterilerin satış fırsatları, ilgili kişileri ve takipleri.</p></div><div><a class="btn secondary" href="index.php?page=customers&amp;action=crm_reports">CRM Raporları</a> <a class="btn secondary" href="index.php?page=customers">Müşteri listesi</a></div></section>
 <section class="panel"><h3>Satış tahmini</h3><p>Açık fırsat toplamı: <?= kd_e(number_format($forecast['total'],2,',','.')) ?> · Olasılık ağırlıklı tahmin: <strong><?= kd_e(number_format($forecast['weighted'],2,',','.')) ?></strong> · Kapanış tarihi belirlenen: <?= (int)$forecast['dated'] ?> · Tarihsiz: <?= (int)$forecast['undated'] ?></p></section><section class="panel"><h3>CRM arama ve filtreleme</h3><form method="get" class="filter-bar">
 <input type="hidden" name="page" value="customers"><input type="hidden" name="action" value="crm_dashboard">
 <label>Arama <input type="search" name="q" value="<?= kd_e($q) ?>" placeholder="Müşteri, kişi veya kayıt adı"></label>
