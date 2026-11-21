@@ -7,6 +7,11 @@ use Throwable;
 
 final class AccountingController
 {
+ private static function journalAmount(mixed $raw):float
+ {
+  if(!is_scalar($raw)||is_bool($raw)||!preg_match('/^\\d{1,13}(?:\\.\\d{1,2})?$/D',trim((string)$raw)))throw new RuntimeException('Fiş tutarı en fazla iki ondalık basamak içeren geçerli bir sayı olmalıdır.');
+  return (float)$raw;
+ }
  public static function handle(PDO $db,array $admin):void
  {
   kd_require_permission('accounting.view');$errors=[];
@@ -16,17 +21,27 @@ final class AccountingController
     $form=(string)($_POST['form_action']??'');
     if($form==='account'){
      $code=trim((string)($_POST['code']??''));$name=trim((string)($_POST['name']??''));$type=(string)($_POST['account_type']??'asset');
-     if($code===''||$name===''||!in_array($type,['asset','liability','equity','income','expense'],true))throw new RuntimeException('Hesap kodu, adı veya türü geçersiz.');
-     $db->prepare('INSERT INTO accounting_accounts(code,name,account_type,parent_id,is_active,created_at) VALUES(?,?,?,?,1,NOW())')->execute([$code,$name,$type,(int)($_POST['parent_id']??0)?:null]);
+     if($code===''||mb_strlen($code)>30||!preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]*$/D',$code)||$name===''||mb_strlen($name)>190||!in_array($type,['asset','liability','equity','income','expense'],true))throw new RuntimeException('Hesap kodu, adı veya türü geçersiz.');
+     $parentId=max(0,(int)($_POST['parent_id']??0));if($parentId>0){$parent=$db->prepare('SELECT account_type FROM accounting_accounts WHERE id=? AND is_active=1');$parent->execute([$parentId]);if($parent->fetchColumn()!==$type)throw new RuntimeException('Üst hesap aktif olmalı ve hesap türü eşleşmelidir.');}
+     $db->prepare('INSERT INTO accounting_accounts(code,name,account_type,parent_id,is_active,created_at) VALUES(?,?,?,?,1,NOW())')->execute([$code,$name,$type,$parentId?:null]);
      kd_audit('accounting.account_created','accounting_account',(int)$db->lastInsertId());self::go();
+    }
+    if($form==='reverse_journal'){
+     $originalId=max(0,(int)($_POST['journal_id']??0));$reason=trim((string)($_POST['reason']??''));if($originalId<1||$reason===''||mb_strlen($reason)>190)throw new RuntimeException('Ters kayıt için fiş ve gerekçe gereklidir.');
+     $db->beginTransaction();$q=$db->prepare("SELECT * FROM accounting_journals WHERE id=? AND source_type IS NULL AND status='posted' FOR UPDATE");$q->execute([$originalId]);$original=$q->fetch();if(!$original)throw new RuntimeException('Yalnızca manuel ve kayıtlı fişler ters kayıtla düzeltilebilir.');
+     $q=$db->prepare("SELECT id FROM accounting_journals WHERE source_type='manual_journal_reversal' AND source_id=?");$q->execute([$originalId]);if($q->fetchColumn())throw new RuntimeException('Bu fiş için ters kayıt zaten oluşturulmuş.');
+     $q=$db->prepare('SELECT account_id,currency,debit,credit FROM accounting_journal_lines WHERE journal_id=? ORDER BY id FOR UPDATE');$q->execute([$originalId]);$lines=$q->fetchAll();if(count($lines)<2)throw new RuntimeException('Ters kayıt için fiş satırları eksik.');
+     $number='TRS-'.date('Ymd').'-'.bin2hex(random_bytes(3));$db->prepare("INSERT INTO accounting_journals(journal_no,journal_date,description,source_type,source_id,created_by,created_at) VALUES(?,?,?,'manual_journal_reversal',?,?,NOW())")->execute([$number,date('Y-m-d'),'Ters kayıt: '.$original['journal_no'].' · '.$reason,$originalId,(int)$admin['id']]);$reversalId=(int)$db->lastInsertId();
+     $insert=$db->prepare('INSERT INTO accounting_journal_lines(journal_id,account_id,currency,debit,credit,created_at) VALUES(?,?,?,?,?,NOW())');foreach($lines as $line)$insert->execute([$reversalId,$line['account_id'],$line['currency'],$line['credit'],$line['debit']]);
+     $db->commit();kd_audit('accounting.journal_reversed','accounting_journal',$reversalId);self::go();
     }
     if($form==='journal'){
      $date=(string)($_POST['journal_date']??date('Y-m-d'));$currency=strtoupper((string)($_POST['currency']??'TRY'));$description=trim((string)($_POST['description']??''));$ids=is_array($_POST['account_id']??null)?$_POST['account_id']:[];$debits=is_array($_POST['debit']??null)?$_POST['debit']:[];$credits=is_array($_POST['credit']??null)?$_POST['credit']:[];
      if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$date)||!in_array($currency,['TRY','USD','EUR','GBP'],true)||$description==='')throw new RuntimeException('Fiş tarihi ve açıklaması zorunludur.');
      $lines=[];$totalDebit=0.0;$totalCredit=0.0;
-     foreach($ids as $i=>$accountId){$accountId=(int)$accountId;$debit=round((float)($debits[$i]??0),2);$credit=round((float)($credits[$i]??0),2);if($accountId<1||$debit<0||$credit<0||($debit>0&&$credit>0)||($debit==0&&$credit==0))continue;$lines[]=[$accountId,$debit,$credit];$totalDebit+=$debit;$totalCredit+=$credit;}
+     foreach($ids as $i=>$accountId){$accountId=(int)$accountId;$debit=self::journalAmount($debits[$i]??0);$credit=self::journalAmount($credits[$i]??0);if($accountId<1||($debit>0&&$credit>0)||($debit==0&&$credit==0))throw new RuntimeException('Fiş satırlarında geçerli hesap ve yalnızca borç veya alacak tutarı girin.');$lines[]=[$accountId,$debit,$credit];$totalDebit+=$debit;$totalCredit+=$credit;}
      if(count($lines)<2||abs($totalDebit-$totalCredit)>0.009||$totalDebit<=0)throw new RuntimeException('En az iki satır girilmeli; borç ve alacak toplamları eşit olmalıdır.');
-     $db->beginTransaction();$number='MF-'.date('Ymd').'-'.bin2hex(random_bytes(3));
+     $totalDebit=round($totalDebit,2);$totalCredit=round($totalCredit,2);$db->beginTransaction();$number='MF-'.date('Ymd').'-'.bin2hex(random_bytes(3));
      $db->prepare("INSERT INTO accounting_journals(journal_no,journal_date,description,created_by,created_at) VALUES(?,?,?,?,NOW())")->execute([$number,$date,$description,(int)$admin['id']]);$journalId=(int)$db->lastInsertId();
      $check=$db->prepare('SELECT id FROM accounting_accounts WHERE id=? AND is_active=1');$insert=$db->prepare('INSERT INTO accounting_journal_lines(journal_id,account_id,currency,debit,credit,created_at) VALUES(?,?,?,?,?,NOW())');
      foreach($lines as [$accountId,$debit,$credit]){$check->execute([$accountId]);if(!$check->fetchColumn())throw new RuntimeException('Fişte pasif veya bulunmayan hesap seçildi.');$insert->execute([$journalId,$accountId,$currency,$debit,$credit]);}
