@@ -82,6 +82,7 @@ final class WarehousesController
                         if($qty>0){$items[$pid]=round(($items[$pid]??0)+$qty,3);if($items[$pid]>999999999999.999)throw new RuntimeException('Transfer miktarı üst sınırı aşıyor.');}
                     }
                     if(!$items)throw new RuntimeException('Transfer için en az bir ürün miktarı girin.');
+                    ksort($items,SORT_NUMERIC); // Lock products in stable order across concurrent transfers.
                     $note=trim((string)($_POST['note']??''));if(mb_strlen($note)>255)throw new RuntimeException('Transfer açıklaması 255 karakteri geçemez.');
                     $pdo->beginTransaction();
                     $q=$pdo->prepare("SELECT id FROM warehouses WHERE id IN (?,?) AND status='active' ORDER BY id FOR UPDATE");$q->execute([$from,$to]);if(count($q->fetchAll())!==2)throw new RuntimeException('Kaynak ve hedef depolar aktif olmalıdır.');
