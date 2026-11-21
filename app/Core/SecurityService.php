@@ -23,7 +23,7 @@ final class SecurityService
  public static function ensureSession(PDO $db,int $userId):void
  {
   $token=(string)($_SESSION['_kd_session_token']??'');
-  if($token===''){self::createSession($db,$userId);return;}
+  if($token===''){$_SESSION=[];session_destroy();header('Location: index.php',true,303);exit;}
   $hash=hash('sha256',$token);$q=$db->prepare('SELECT id FROM user_sessions WHERE user_id=? AND session_hash=? AND revoked_at IS NULL AND expires_at>NOW()');$q->execute([$userId,$hash]);$id=(int)$q->fetchColumn();
   if(!$id){$_SESSION=[];session_destroy();header('Location: index.php',true,303);exit;}
   $db->prepare('UPDATE user_sessions SET last_activity=NOW() WHERE id=?')->execute([$id]);
