@@ -14,6 +14,10 @@ final class CustomerController
         kd_require_permission('customers.view');
         $action = (string)($_GET['action'] ?? 'list');
         $id = max(0, (int)($_GET['id'] ?? 0));
+        if ($action === 'crm_reports') {
+            CrmReports::handle($pdo);
+            return;
+        }
         if ($action === 'crm_dashboard') {
             CrmDashboard::handle($pdo);
             return;
