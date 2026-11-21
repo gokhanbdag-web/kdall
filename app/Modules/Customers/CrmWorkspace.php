@@ -21,8 +21,13 @@ final class CrmWorkspace {
       else {$pdo->prepare('INSERT INTO crm_contacts(customer_id,name,role,email,phone) VALUES(?,?,?,?,?)')->execute([$id,$title,substr(trim((string)($_POST['role']??'')),0,120),$email?:null,substr(trim((string)($_POST['phone']??'')),0,40)]);}
      } elseif ($kind==='opportunity') {
       $stage=(string)($_POST['stage']??'lead');$amount=$_POST['amount']??null;
+      $probabilityRaw=trim((string)($_POST['probability']??''));
+      $probability=$probabilityRaw===''?null:filter_var($probabilityRaw,FILTER_VALIDATE_INT,['options'=>['min_range'=>0,'max_range'=>100]]);
+      $closeRaw=(string)($_POST['expected_close_date']??'');
+      $closeDate=$closeRaw===''?null:\DateTimeImmutable::createFromFormat('!Y-m-d',$closeRaw);
+      if (($probabilityRaw!=='' && $probability===false) || ($closeRaw!=='' && (!$closeDate || $closeDate->format('Y-m-d')!==$closeRaw))) $errors[]='Tahmin olasılığı veya kapanış tarihi geçersiz.';
       if (!in_array($stage,['lead','qualified','proposal','negotiation','won','lost'],true) || !is_numeric($amount) || (float)$amount<0) {$errors[]='Fırsat bilgileri geçersiz.';}
-      else {$pdo->prepare('INSERT INTO crm_opportunities(customer_id,title,amount,stage) VALUES(?,?,?,?)')->execute([$id,$title,(float)$amount,$stage]);}
+      else {$pdo->prepare('INSERT INTO crm_opportunities(customer_id,title,amount,stage,probability,expected_close_date) VALUES(?,?,?,?,?,?)')->execute([$id,$title,(float)$amount,$stage,$probability,$closeDate?$closeDate->format('Y-m-d'):null]);}
      } elseif ($kind==='followup') {
       $date=(string)($_POST['due_at']??'');$parsed=\DateTimeImmutable::createFromFormat('!Y-m-d\TH:i',$date);
       if (!$parsed || $parsed->format('Y-m-d\TH:i')!==$date) {$errors[]='Tarih geçersiz.';}
@@ -69,8 +74,13 @@ final class CrmWorkspace {
       else {$pdo->prepare('UPDATE crm_contacts SET name=?,role=?,email=?,phone=? WHERE id=? AND customer_id=?')->execute([$title,substr(trim((string)($_POST['role']??'')),0,120),$email?:null,substr(trim((string)($_POST['phone']??'')),0,40),(int)($_POST['item_id']??0),$id]);}
      } elseif ($kind==='edit_opportunity') {
       $stage=(string)($_POST['stage']??'');$amount=$_POST['amount']??null;
+      $probabilityRaw=trim((string)($_POST['probability']??''));
+      $probability=$probabilityRaw===''?null:filter_var($probabilityRaw,FILTER_VALIDATE_INT,['options'=>['min_range'=>0,'max_range'=>100]]);
+      $closeRaw=(string)($_POST['expected_close_date']??'');
+      $closeDate=$closeRaw===''?null:\DateTimeImmutable::createFromFormat('!Y-m-d',$closeRaw);
+      if (($probabilityRaw!=='' && $probability===false) || ($closeRaw!=='' && (!$closeDate || $closeDate->format('Y-m-d')!==$closeRaw))) $errors[]='Tahmin olasılığı veya kapanış tarihi geçersiz.';
       if ($title==='' || mb_strlen($title)>190 || !in_array($stage,['lead','qualified','proposal','negotiation','won','lost'],true) || !is_numeric($amount) || (float)$amount<0) {$errors[]='Fırsat bilgileri geçersiz.';}
-      else {$pdo->prepare('UPDATE crm_opportunities SET title=?,amount=?,stage=?,updated_at=NOW() WHERE id=? AND customer_id=?')->execute([$title,(float)$amount,$stage,(int)($_POST['item_id']??0),$id]);}
+      else {$pdo->prepare('UPDATE crm_opportunities SET title=?,amount=?,stage=?,probability=?,expected_close_date=?,updated_at=NOW() WHERE id=? AND customer_id=?')->execute([$title,(float)$amount,$stage,$probability,$closeDate?$closeDate->format('Y-m-d'):null,(int)($_POST['item_id']??0),$id]);}
      } elseif ($kind==='edit_followup') {
       $date=(string)($_POST['due_at']??'');$parsed=\DateTimeImmutable::createFromFormat('!Y-m-d\TH:i',$date);
       if ($title==='' || mb_strlen($title)>190 || !$parsed || $parsed->format('Y-m-d\TH:i')!==$date) {$errors[]='Takip bilgileri geçersiz.';}

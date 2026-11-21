@@ -15,7 +15,7 @@ $crmPager=static function(string $key) use ($pagination): void {
 ?>
 
 <section class="module-toolbar"><div><h2>CRM Merkezi</h2><p class="module-intro">Tüm müşterilerin satış fırsatları, ilgili kişileri ve takipleri.</p></div><a class="btn secondary" href="index.php?page=customers">Müşteri listesi</a></section>
-<section class="panel"><h3>CRM arama ve filtreleme</h3><form method="get" class="filter-bar">
+<section class="panel"><h3>Satış tahmini</h3><p>Açık fırsat toplamı: <?= kd_e(number_format($forecast['total'],2,',','.')) ?> · Olasılık ağırlıklı tahmin: <strong><?= kd_e(number_format($forecast['weighted'],2,',','.')) ?></strong> · Kapanış tarihi belirlenen: <?= (int)$forecast['dated'] ?> · Tarihsiz: <?= (int)$forecast['undated'] ?></p></section><section class="panel"><h3>CRM arama ve filtreleme</h3><form method="get" class="filter-bar">
 <input type="hidden" name="page" value="customers"><input type="hidden" name="action" value="crm_dashboard">
 <label>Arama <input type="search" name="q" value="<?= kd_e($q) ?>" placeholder="Müşteri, kişi veya kayıt adı"></label>
 <label>Müşteri ID <input type="number" min="1" name="customer_id" value="<?= $customerId?:'' ?>"></label>
@@ -31,7 +31,7 @@ $crmPager=static function(string $key) use ($pagination): void {
 <?php foreach (['customers'=>'Müşteriler','contacts'=>'İlgili kişiler','opportunities'=>'Satış fırsatları','followups'=>'Takipler','open_followups'=>'Açık takipler','overdue'=>'Geciken takipler'] as $key=>$label): ?><tr><th><?= kd_e($label) ?></th><td><?= (int)$stats[$key] ?></td></tr><?php endforeach; ?>
 </tbody></table></div></section>
 <section class="panel"><h3>Satış fırsatları </h3><div class="table-wrap"><table class="data-table"><thead><tr><th>Müşteri</th><th>Fırsat</th><th>Aşama</th><th>Tutar</th><th>İşlem</th></tr></thead><tbody>
-<?php foreach ($opportunities as $item): ?><tr><td><?= kd_e($item['customer_name']) ?></td><td><?= kd_e($item['title']) ?></td><td><?= kd_e($item['stage']) ?></td><td><?= kd_e(number_format((float)$item['amount'],2,',','.')) ?></td><td><a href="index.php?page=customers&amp;action=crm&amp;id=<?= (int)$item['customer_id'] ?>">Yönet</a></td></tr><?php endforeach; ?>
+<?php foreach ($opportunities as $item): ?><tr><td><?= kd_e($item['customer_name']) ?></td><td><?= kd_e($item['title']) ?></td><td><?= kd_e($item['stage']) ?> · <?= (int)\KodVadAll\Modules\Customers\CrmForecast::probability((string)$item['stage'],$item['probability']===null?null:(int)$item['probability']) ?>%</td><td><?= kd_e(number_format((float)$item['amount'],2,',','.')) ?></td><td><a href="index.php?page=customers&amp;action=crm&amp;id=<?= (int)$item['customer_id'] ?>">Yönet</a></td></tr><?php endforeach; ?>
 <?php if (!$opportunities): ?><tr><td colspan="5">Fırsat bulunmuyor.</td></tr><?php endif; ?>
 </tbody></table></div><?php $crmPager('opp_page'); ?></section>
 <section class="panel"><h3>Takipler </h3><div class="table-wrap"><table class="data-table"><thead><tr><th>Müşteri</th><th>Takip</th><th>Tarih</th><th>Durum</th><th>İşlem</th></tr></thead><tbody>

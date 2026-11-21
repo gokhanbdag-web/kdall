@@ -53,7 +53,7 @@ final class CrmDashboard {
   if ($to!=='') {$oppWhere[]='DATE(o.created_at)<=?';$oppParams[]=$to;}
   $oppFrom='FROM crm_opportunities o JOIN customers c ON c.id=o.customer_id';
   $oppLimit=$paginate($pdo,$oppFrom,$oppWhere,$oppParams,'opp_page');
-  $sql='SELECT o.id,o.title,o.stage,o.amount,c.id AS customer_id,c.name AS customer_name '.$oppFrom.($oppWhere?' WHERE '.implode(' AND ',$oppWhere):'').' ORDER BY o.id DESC'.$oppLimit;
+  $sql='SELECT o.id,o.title,o.stage,o.amount,o.probability,o.expected_close_date,c.id AS customer_id,c.name AS customer_name '.$oppFrom.($oppWhere?' WHERE '.implode(' AND ',$oppWhere):'').' ORDER BY o.id DESC'.$oppLimit;
   $stmt=$pdo->prepare($sql);$stmt->execute($oppParams);$opportunities=$stmt->fetchAll();
   $followWhere=[];$followParams=[];
   if ($customerId>0) {$followWhere[]='f.customer_id=?';$followParams[]=$customerId;}
@@ -73,6 +73,13 @@ final class CrmDashboard {
   $contactLimit=$paginate($pdo,$contactFrom,$contactWhere,$contactParams,'contact_page');
   $sql='SELECT p.id,p.name,p.role,p.email,c.id AS customer_id,c.name AS customer_name '.$contactFrom.($contactWhere?' WHERE '.implode(' AND ',$contactWhere):'').' ORDER BY p.id DESC'.$contactLimit;
   $stmt=$pdo->prepare($sql);$stmt->execute($contactParams);$contacts=$stmt->fetchAll();
+  $forecastRows=$pdo->query("SELECT stage,amount,probability,expected_close_date FROM crm_opportunities WHERE stage NOT IN ('lost','won')")->fetchAll(PDO::FETCH_ASSOC);
+  $forecast=['total'=>0.0,'weighted'=>0.0,'dated'=>0,'undated'=>0];
+  foreach ($forecastRows as $item) {
+   $forecast['total']+=(float)$item['amount'];
+   $forecast['weighted']+=CrmForecast::weighted((float)$item['amount'],(string)$item['stage'],$item['probability']===null?null:(int)$item['probability']);
+   if ($item['expected_close_date']===null) $forecast['undated']++; else $forecast['dated']++;
+  }
   $pageTitle='CRM Merkezi';
   ob_start();require KD_ROOT.'/app/Views/customers/crm_dashboard.php';$content=ob_get_clean();require KD_ROOT.'/app/Views/layouts/admin.php';
  }
