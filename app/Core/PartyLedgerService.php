@@ -17,11 +17,21 @@ final class PartyLedgerService
   $q->execute([$party,$id,$paymentType,$direction]);
   foreach($q->fetchAll() as $r){$currency=$r['currency'];$totals[$currency]??=['invoiced'=>0.0,'paid'=>0.0];$totals[$currency]['paid']=(float)$r['total'];}
   ksort($totals);
-  $q=$db->prepare("SELECT id,invoice_number reference_no,issue_date entry_date,currency,grand_total amount,'invoice' entry_type FROM invoices WHERE {$column}=? AND invoice_type=? AND status IN ('issued','paid') ORDER BY id DESC LIMIT 100");
-  $q->execute([$id,$invoiceType]);$entries=$q->fetchAll();
-  $q=$db->prepare("SELECT id,COALESCE(NULLIF(reference_no,''),CONCAT('FIN-',id)) reference_no,transaction_date entry_date,currency,amount,'payment' entry_type FROM financial_transactions WHERE party_type=? AND party_id=? AND transaction_type=? AND direction=? ORDER BY id DESC LIMIT 100");
-  $q->execute([$party,$id,$paymentType,$direction]);$entries=array_merge($entries,$q->fetchAll());
-  usort($entries,static fn(array $a,array $b):int=>strcmp((string)$b['entry_date'],(string)$a['entry_date'])?:strcmp((string)$b['entry_type'],(string)$a['entry_type'])?:((int)$b['id']<=>(int)$a['id']));
-  return ['totals'=>$totals,'entries'=>array_slice($entries,0,100)];
+  $page=max(1,min(100000,(int)($_GET['ledger_page']??1)));
+  $perPage=50;
+  $count=$db->prepare("SELECT (SELECT COUNT(*) FROM invoices WHERE {$column}=? AND invoice_type=? AND status IN ('issued','paid'))+(SELECT COUNT(*) FROM financial_transactions WHERE party_type=? AND party_id=? AND transaction_type=? AND direction=?)");
+  $count->execute([$id,$invoiceType,$party,$id,$paymentType,$direction]);
+  $entryCount=(int)$count->fetchColumn();
+  $pages=max(1,(int)ceil($entryCount/$perPage));
+  $page=min($page,$pages);
+  $offset=($page-1)*$perPage;
+  $sql="SELECT id,reference_no,entry_date,currency,amount,entry_type FROM (
+   SELECT id,invoice_number reference_no,issue_date entry_date,currency,grand_total amount,'invoice' entry_type FROM invoices WHERE {$column}=? AND invoice_type=? AND status IN ('issued','paid')
+   UNION ALL
+   SELECT id,COALESCE(NULLIF(reference_no,''),CONCAT('FIN-',id)) reference_no,transaction_date entry_date,currency,amount,'payment' entry_type FROM financial_transactions WHERE party_type=? AND party_id=? AND transaction_type=? AND direction=?
+  ) ledger_entries ORDER BY entry_date DESC,entry_type DESC,id DESC LIMIT {$perPage} OFFSET {$offset}";
+  $q=$db->prepare($sql);
+  $q->execute([$id,$invoiceType,$party,$id,$paymentType,$direction]);
+  return ['totals'=>$totals,'entries'=>$q->fetchAll(),'page'=>$page,'pages'=>$pages,'entry_count'=>$entryCount];
  }
 }
