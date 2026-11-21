@@ -45,6 +45,18 @@ final class CrmWorkspace {
       $check=$pdo->prepare('SELECT id FROM tasks WHERE id=?');$check->execute([$taskId]);
       if (!$check->fetchColumn()) {$errors[]='Görev bulunamadı.';}
       else {$pdo->prepare('UPDATE crm_followups SET task_id=? WHERE id=? AND customer_id=?')->execute([$taskId,(int)($_POST['item_id']??0),$id]);}
+     } elseif ($kind==='edit_contact') {
+      $email=trim((string)($_POST['email']??''));
+      if ($title==='' || mb_strlen($title)>190 || ($email!=='' && !filter_var($email,FILTER_VALIDATE_EMAIL))) {$errors[]='Kişi bilgileri geçersiz.';}
+      else {$pdo->prepare('UPDATE crm_contacts SET name=?,role=?,email=?,phone=? WHERE id=? AND customer_id=?')->execute([$title,substr(trim((string)($_POST['role']??'')),0,120),$email?:null,substr(trim((string)($_POST['phone']??'')),0,40),(int)($_POST['item_id']??0),$id]);}
+     } elseif ($kind==='edit_opportunity') {
+      $stage=(string)($_POST['stage']??'');$amount=$_POST['amount']??null;
+      if ($title==='' || mb_strlen($title)>190 || !in_array($stage,['lead','qualified','proposal','negotiation','won','lost'],true) || !is_numeric($amount) || (float)$amount<0) {$errors[]='Fırsat bilgileri geçersiz.';}
+      else {$pdo->prepare('UPDATE crm_opportunities SET title=?,amount=?,stage=?,updated_at=NOW() WHERE id=? AND customer_id=?')->execute([$title,(float)$amount,$stage,(int)($_POST['item_id']??0),$id]);}
+     } elseif ($kind==='edit_followup') {
+      $date=(string)($_POST['due_at']??'');$parsed=\DateTimeImmutable::createFromFormat('!Y-m-d\TH:i',$date);
+      if ($title==='' || mb_strlen($title)>190 || !$parsed || $parsed->format('Y-m-d\TH:i')!==$date) {$errors[]='Takip bilgileri geçersiz.';}
+      else {$pdo->prepare('UPDATE crm_followups SET title=?,due_at=? WHERE id=? AND customer_id=?')->execute([$title,$parsed->format('Y-m-d H:i:s'),(int)($_POST['item_id']??0),$id]);}
      } elseif ($kind==='delete_contact') {
       $pdo->prepare('DELETE FROM crm_contacts WHERE id=? AND customer_id=?')->execute([(int)($_POST['item_id']??0),$id]);
      } else {$errors[]='İşlem geçersiz.';}
