@@ -94,6 +94,8 @@ jobs:
         run: php tests/users_module_smoke.php
       - name: Run settings module smoke tests
         run: php tests/settings_module_smoke.php
+      - name: Run purchasing operational safety smoke tests
+        run: php tests/purchasing_operational_safety_smoke.php
       - name: Run purchasing module smoke tests
         run: php tests/purchasing_module_smoke.php
       - name: Run finance module smoke tests
