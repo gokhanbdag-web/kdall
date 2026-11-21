@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 ?>
+<p><a class="btn secondary action-link" href="index.php?page=customers&amp;action=crm_dashboard">CRM Merkezi</a></p>
 <section class="module-toolbar">
     <div><p class="module-intro">Müşteri ilişkilerinizi tek yerden yönetin.</p><span class="result-count"><?= number_format($total,0,',','.') ?> müşteri kaydı</span></div>
     <?php if (kd_can('customers.manage')): ?><a class="btn primary action-link" href="index.php?page=customers&action=create">＋ Yeni müşteri</a><?php endif; ?>
