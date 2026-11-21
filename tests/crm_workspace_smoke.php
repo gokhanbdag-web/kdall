@@ -33,4 +33,16 @@ foreach (['link_followup_opportunity','SELECT id FROM crm_followups WHERE id=? A
 foreach (['link_followup_opportunity','Bağlantı yok','opportunity_id'] as $required) {
  if (!str_contains($view,$required)) {fwrite(STDERR,"CRM association UI missing: $required\n");exit(1);}
 }
+$dashboard=file_get_contents($root.'/app/Modules/Customers/CrmDashboard.php');
+$dashboardView=file_get_contents($root.'/app/Views/customers/crm_dashboard.php');
+$customerController=file_get_contents($root.'/app/Modules/Customers/CustomerController.php');
+foreach (['crm_dashboard','CrmDashboard::handle'] as $required) {
+ if (!str_contains($customerController,$required)) {fwrite(STDERR,"CRM dashboard route missing: $required\n");exit(1);}
+}
+foreach (['crm_opportunities','crm_followups','crm_contacts','customers.view'] as $required) {
+ if (!str_contains($dashboard,$required)) {fwrite(STDERR,"CRM dashboard query missing: $required\n");exit(1);}
+}
+foreach (['$opportunities','$followups','$contacts','CRM Merkezi'] as $required) {
+ if (!str_contains($dashboardView,$required)) {fwrite(STDERR,"CRM dashboard UI missing: $required\n");exit(1);}
+}
 echo "CRM workspace smoke tests passed\n";
