@@ -1,4 +1,5 @@
 <?php declare(strict_types=1); ?>
+
 <?php $crmPager=static function(string $key) use ($pagination,$id): void {
  $meta=$pagination[$key];
  echo '<div class="pagination"><span>'.(int)$meta['total'].' kayıt · '.(int)$meta['page'].' / '.(int)$meta['pages'].' sayfa</span><div>';
