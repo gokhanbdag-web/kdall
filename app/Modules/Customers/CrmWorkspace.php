@@ -33,6 +33,24 @@ final class CrmWorkspace {
       else {$pdo->prepare('UPDATE crm_opportunities SET stage=?,updated_at=NOW() WHERE id=? AND customer_id=?')->execute([$stage,(int)($_POST['item_id']??0),$id]);}
      } elseif ($kind==='done' || $kind==='reopen') {
       $pdo->prepare('UPDATE crm_followups SET status=? WHERE id=? AND customer_id=?')->execute([$kind==='done'?'done':'open',(int)($_POST['item_id']??0),$id]);
+     } elseif ($kind==='link_followup_opportunity') {
+      $followupId=(int)($_POST['item_id']??0);
+      $opportunityId=(int)($_POST['opportunity_id']??0);
+      $followup=$pdo->prepare('SELECT id FROM crm_followups WHERE id=? AND customer_id=?');
+      $followup->execute([$followupId,$id]);
+      if ($followupId<1 || !$followup->fetchColumn()) {$errors[]='Takip kaydı bu müşteriye ait değil.';}
+      elseif ($opportunityId<0) {$errors[]='Satış fırsatı geçersiz.';}
+      else {
+       if ($opportunityId>0) {
+        $opportunity=$pdo->prepare('SELECT id FROM crm_opportunities WHERE id=? AND customer_id=?');
+        $opportunity->execute([$opportunityId,$id]);
+        if (!$opportunity->fetchColumn()) {$errors[]='Satış fırsatı bu müşteriye ait değil.';}
+       }
+       if (!$errors) {
+        $pdo->prepare('UPDATE crm_followups SET opportunity_id=? WHERE id=? AND customer_id=?')
+            ->execute([$opportunityId>0?$opportunityId:null,$followupId,$id]);
+       }
+      }
      } elseif ($kind==='link_quote') {
       kd_require_permission('quotes.view');
       $quoteId=(int)($_POST['quote_id']??0);
