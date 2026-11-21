@@ -14,3 +14,14 @@
 <?php if (kd_can('customers.manage')): ?><form method="post"><?= kd_csrf_field() ?><input type="hidden" name="kind" value="followup"><label>Başlık<input name="title" maxlength="190" required></label><label>Tarih<input type="datetime-local" name="due_at" required></label><button class="btn primary">Takip ekle</button></form><?php endif; ?>
 </section>
 <section class="panel"><h3>Diğer ERP işlemleri</h3><p><a class="btn secondary" href="index.php?page=quotes">Teklifler</a> <a class="btn secondary" href="index.php?page=tasks">Görevler</a> <a class="btn secondary" href="index.php?page=customers&action=view&id=<?= (int)$id ?>">Cari hesap ve görüşme geçmişi</a></p></section>
+
+<section class="panel"><h3>ERP bağlantıları</h3>
+<?php if (kd_can('customers.manage') && kd_can('quotes.view') && $quotes): ?>
+<h4>Fırsatı teklife bağla</h4>
+<?php foreach ($data['opportunities'] as $item): ?><form method="post"><?= kd_csrf_field() ?><input type="hidden" name="kind" value="link_quote"><input type="hidden" name="item_id" value="<?= (int)$item['id'] ?>"><label><?= kd_e($item['title']) ?><select name="quote_id"><?php foreach ($quotes as $quote): ?><option value="<?= (int)$quote['id'] ?>" <?= (int)$item['quote_id']===(int)$quote['id']?'selected':'' ?>><?= kd_e($quote['quote_number']) ?></option><?php endforeach; ?></select></label><button class="btn secondary">Teklifle bağla</button></form><?php endforeach; ?>
+<?php endif; ?>
+<?php if (kd_can('customers.manage') && kd_can('tasks.view') && $tasks): ?>
+<h4>Takibi göreve bağla</h4>
+<?php foreach ($data['followups'] as $item): ?><form method="post"><?= kd_csrf_field() ?><input type="hidden" name="kind" value="link_task"><input type="hidden" name="item_id" value="<?= (int)$item['id'] ?>"><label><?= kd_e($item['title']) ?><select name="task_id"><?php foreach ($tasks as $task): ?><option value="<?= (int)$task['id'] ?>" <?= (int)$item['task_id']===(int)$task['id']?'selected':'' ?>><?= kd_e($task['title']) ?></option><?php endforeach; ?></select></label><button class="btn secondary">Göreve bağla</button></form><?php endforeach; ?>
+<?php endif; ?>
+</section>
