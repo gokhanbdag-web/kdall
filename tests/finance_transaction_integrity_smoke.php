@@ -10,6 +10,6 @@ foreach([
 "postFinancialTransaction",
 "UPDATE invoices SET status='paid'"
 ] as $guard)if(!str_contains($finance,$guard))throw new RuntimeException('Finance guard missing: '.$guard);
-if(substr_count($finance,'$db->beginTransaction();')!==3)throw new RuntimeException('Unexpected finance transaction boundaries');
+if(substr_count($finance,'$db->beginTransaction();')!==4)throw new RuntimeException('Unexpected finance transaction boundaries');
 foreach(['financial_transactions WHERE id=?','invoices WHERE id=?','FOR UPDATE','financial_advance_allocations','remaining'] as $guard)if(!str_contains($advance,$guard))throw new RuntimeException('Advance allocation guard missing: '.$guard);
 echo "Finance transaction and advance guards passed\n";

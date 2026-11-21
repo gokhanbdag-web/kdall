@@ -24,6 +24,13 @@ final class FinanceController
      $db->beginTransaction();$db->prepare('INSERT INTO financial_accounts (name,account_type,currency,opening_balance,bank_name,iban,notes,status,created_at) VALUES (?,?,?,?,?,?,?,\'active\',NOW())')->execute([$name,$type,$currency,$opening,trim((string)($_POST['bank_name']??''))?:null,trim((string)($_POST['iban']??''))?:null,trim((string)($_POST['notes']??''))?:null]);
      $id=(int)$db->lastInsertId();\KodVadAll\Core\AccountingPostingService::postFinancialAccountOpening($db,$id,(int)$admin['id']);$db->commit();kd_audit('finance.account_created','financial_account',$id);self::go('accounts');
     }
+    if($form==='update_account'){
+     $accountId=max(0,(int)($_POST['account_id']??0));$name=trim((string)($_POST['name']??''));$status=(string)($_POST['status']??'active');
+     if($accountId<1||$name===''||mb_strlen($name)>150||!in_array($status,['active','inactive'],true))throw new RuntimeException('Hesap bilgileri geçersiz.');
+     $db->beginTransaction();$q=$db->prepare('SELECT id FROM financial_accounts WHERE id=? FOR UPDATE');$q->execute([$accountId]);if(!$q->fetchColumn())throw new RuntimeException('Finans hesabı bulunamadı.');
+     $db->prepare('UPDATE financial_accounts SET name=?,bank_name=?,iban=?,notes=?,status=? WHERE id=?')->execute([$name,trim((string)($_POST['bank_name']??''))?:null,trim((string)($_POST['iban']??''))?:null,trim((string)($_POST['notes']??''))?:null,$status,$accountId]);
+     $db->commit();kd_audit('finance.account_updated','financial_account',$accountId);self::go('account',$accountId);
+    }
     if($form==='transaction'){
      $account=(int)($_POST['account_id']??0);$type=(string)($_POST['transaction_type']??'');$amount=self::moneyAmount($_POST['amount']??'');$date=(string)($_POST['transaction_date']??date('Y-m-d'));
      if(!in_array($type,['income','expense','collection','supplier_payment'],true)||$amount<=0||!preg_match('/^\d{4}-\d{2}-\d{2}$/',$date))throw new RuntimeException('İşlem türü, tutar veya tarih geçersiz.');
@@ -46,6 +53,7 @@ final class FinanceController
       if($amount>$remaining+0.000001)throw new RuntimeException('Ödeme tutarı kalan fatura bakiyesini aşamaz.');
      }
      $direction=in_array($type,['income','collection'],true)?'credit':'debit';
+     if($direction==='debit' && self::accountBalance($db,$account)<$amount-0.000001)throw new RuntimeException('Hesap bakiyesi ödeme için yetersiz.');
      $db->prepare('INSERT INTO financial_transactions (account_id,invoice_id,transaction_type,direction,amount,currency,transaction_date,party_type,party_id,category,reference_no,description,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())')->execute([$account,$invoiceId?:null,$type,$direction,$amount,$acc['currency'],$date,$partyType,$partyId,trim((string)($_POST['category']??''))?:null,trim((string)($_POST['reference_no']??''))?:null,trim((string)($_POST['description']??''))?:null,(int)$admin['id']]);
      $id=(int)$db->lastInsertId();\KodVadAll\Core\AccountingPostingService::postFinancialTransaction($db,$id,(int)$admin['id']);if($invoiceId>0&&$remaining-$amount<=0.000001)$db->prepare("UPDATE invoices SET status='paid',updated_at=NOW() WHERE id=?")->execute([$invoiceId]);$db->commit();kd_audit('finance.transaction_created','financial_transaction',$id);self::go('list');
     }
@@ -53,6 +61,7 @@ final class FinanceController
      $from=(int)($_POST['from_account']??0);$to=(int)($_POST['to_account']??0);$amount=self::moneyAmount($_POST['amount']??'');$date=(string)($_POST['transaction_date']??date('Y-m-d'));
      if($from<1||$to<1||$from===$to||$amount<=0||!preg_match('/^\d{4}-\d{2}-\d{2}$/',$date))throw new RuntimeException('Transfer bilgilerini kontrol edin.');
      $db->beginTransaction();$q=$db->prepare("SELECT id,currency FROM financial_accounts WHERE id IN (?,?) AND status='active' ORDER BY id FOR UPDATE");$q->execute([$from,$to]);$accs=$q->fetchAll();if(count($accs)!==2||$accs[0]['currency']!==$accs[1]['currency'])throw new RuntimeException('İki aktif hesap ve aynı para birimi seçilmelidir.');
+     if(self::accountBalance($db,$from)<$amount-0.000001)throw new RuntimeException('Kaynak hesap bakiyesi transfer için yetersiz.');
      $code='TRF-'.bin2hex(random_bytes(8));$ins=$db->prepare('INSERT INTO financial_transactions (account_id,transaction_type,direction,amount,currency,transaction_date,transfer_code,description,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,NOW())');
      $ins->execute([$from,'transfer_out','debit',$amount,$accs[0]['currency'],$date,$code,'Hesaplar arası transfer · '.$code,(int)$admin['id']]);$transferOutId=(int)$db->lastInsertId();
      $ins->execute([$to,'transfer_in','credit',$amount,$accs[0]['currency'],$date,$code,'Hesaplar arası transfer · '.$code,(int)$admin['id']]);
@@ -70,6 +79,11 @@ final class FinanceController
   if($action==='account'){$id=max(0,(int)($_GET['id']??0));$st=$db->prepare("SELECT a.*,(a.opening_balance+COALESCE(SUM(CASE WHEN t.direction='credit' THEN t.amount ELSE -t.amount END),0)) balance FROM financial_accounts a LEFT JOIN financial_transactions t ON t.account_id=a.id WHERE a.id=? GROUP BY a.id");$st->execute([$id]);$selected=$st->fetch();if(!$selected)self::notFound();$st=$db->prepare('SELECT * FROM financial_transactions WHERE account_id=? ORDER BY transaction_date DESC,id DESC LIMIT 200');$st->execute([$id]);$transactions=$st->fetchAll();}
   else{$where=[];$params=[];if($q!==''){$where[]='(t.reference_no LIKE ? OR t.description LIKE ? OR a.name LIKE ?)';$like='%'.$q.'%';array_push($params,$like,$like,$like);}if($type!==''){$where[]='t.transaction_type=?';$params[]=$type;}$sql=$where?' WHERE '.implode(' AND ',$where):'';$st=$db->prepare('SELECT t.*,a.name account_name FROM financial_transactions t JOIN financial_accounts a ON a.id=t.account_id'.$sql.' ORDER BY t.transaction_date DESC,t.id DESC LIMIT 150');$st->execute($params);$transactions=$st->fetchAll();}
   $pageTitle='Finans & Ön Muhasebe';ob_start();require KD_ROOT.'/app/Views/finance/index.php';$content=ob_get_clean();require KD_ROOT.'/app/Views/layouts/admin.php';
+ }
+ private static function accountBalance(PDO $db,int $id):float
+ {
+  $q=$db->prepare("SELECT a.opening_balance+COALESCE(SUM(CASE WHEN t.direction='credit' THEN t.amount ELSE -t.amount END),0) FROM financial_accounts a LEFT JOIN financial_transactions t ON t.account_id=a.id WHERE a.id=? GROUP BY a.id");
+  $q->execute([$id]);return round((float)$q->fetchColumn(),2);
  }
  private static function moneyAmount(mixed $value,bool $allowZero=false):float
  {
