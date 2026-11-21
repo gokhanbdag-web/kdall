@@ -64,7 +64,7 @@ final class CrmDashboard {
   if ($to!=='') {$followWhere[]='DATE(f.due_at)<=?';$followParams[]=$to;}
   $followFrom='FROM crm_followups f JOIN customers c ON c.id=f.customer_id';
   $followLimit=$paginate($pdo,$followFrom,$followWhere,$followParams,'follow_page');
-  $sql='SELECT f.id,f.title,f.due_at,f.status,c.id AS customer_id,c.name AS customer_name '.$followFrom.($followWhere?' WHERE '.implode(' AND ',$followWhere):'')." ORDER BY (f.status='open') DESC,f.due_at ASC,id DESC".$followLimit;
+  $sql='SELECT f.id,f.title,f.due_at,f.status,c.id AS customer_id,c.name AS customer_name '.$followFrom.($followWhere?' WHERE '.implode(' AND ',$followWhere):'')." ORDER BY (f.status='open') DESC,f.due_at ASC,f.id DESC".$followLimit;
   $stmt=$pdo->prepare($sql);$stmt->execute($followParams);$followups=$stmt->fetchAll();
   $contactWhere=[];$contactParams=[];
   if ($customerId>0) {$contactWhere[]='p.customer_id=?';$contactParams[]=$customerId;}
