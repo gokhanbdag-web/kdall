@@ -119,9 +119,9 @@ final class WarehousesController
             $where=["p.track_stock=1","p.status='active'"];$params=[];
             if($warehouseId>0){$where[]='w.id=?';$params[]=$warehouseId;}
             if($search!==''){$where[]='(p.name LIKE ? OR p.sku LIKE ?)';$params[]='%'.$search.'%';$params[]='%'.$search.'%';}
-            if($lowOnly)$where[]='s.quantity<=p.min_stock';
-            $sql="SELECT w.id warehouse_id,w.name warehouse_name,p.id product_id,p.name product_name,p.sku,p.unit,p.min_stock,p.purchase_price,s.quantity,ROUND(s.quantity*p.purchase_price,2) stock_value
-                FROM product_warehouse_stocks s JOIN warehouses w ON w.id=s.warehouse_id JOIN products p ON p.id=s.product_id
+            if($lowOnly)$where[]='COALESCE(s.quantity,0)<=p.min_stock';
+            $sql="SELECT w.id warehouse_id,w.name warehouse_name,p.id product_id,p.name product_name,p.sku,p.unit,p.min_stock,p.purchase_price,COALESCE(s.quantity,0) quantity,ROUND(COALESCE(s.quantity,0)*p.purchase_price,2) stock_value
+                FROM warehouses w CROSS JOIN products p LEFT JOIN product_warehouse_stocks s ON s.warehouse_id=w.id AND s.product_id=p.id
                 WHERE ".implode(' AND ',$where)." ORDER BY w.name,p.name LIMIT 500";
             $q=$pdo->prepare($sql);$q->execute($params);$stockRows=$q->fetchAll();
             $totalValue=array_sum(array_map(static fn($r)=>(float)$r['stock_value'],$stockRows));
@@ -131,7 +131,7 @@ final class WarehousesController
         if($action==='movements'){
             $warehouseId=max(0,(int)($_GET['warehouse_id']??0));$productId=max(0,(int)($_GET['product_id']??0));
             $type=trim((string)($_GET['movement_type']??''));
-            $allowedTypes=['purchase','sale','adjustment','transfer_in','transfer_out','return','production','consumption'];
+            $allowedTypes=$pdo->query('SELECT DISTINCT movement_type FROM product_stock_movements ORDER BY movement_type')->fetchAll(PDO::FETCH_COLUMN);
             if($type!==''&&!in_array($type,$allowedTypes,true))$type='';
             $warehouses=$pdo->query("SELECT id,name FROM warehouses ORDER BY name")->fetchAll();
             $where=['1=1'];$params=[];
