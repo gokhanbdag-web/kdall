@@ -48,11 +48,16 @@ final class CustomerController
                     $formInput = $data;
                     $status = in_array($_POST['status'] ?? '', ['active','inactive'], true) ? (string)$_POST['status'] : 'active';
                     if (!$errors && $customerId > 0) {
+                        if (!self::find($pdo, $customerId)) {
+                            self::notFound();
+                        }
+                        $pdo->beginTransaction();
                         $stmt = $pdo->prepare(
                             'UPDATE customers SET type=?,name=?,email=?,phone=?,tax_number=?,notes=?,status=?,updated_at=NOW() WHERE id=?'
                         );
                         $stmt->execute([$data['type'],$data['name'],$data['email'],$data['phone'],$data['tax_number'],$data['notes'],$status,$customerId]);
                         self::addActivity($pdo,$customerId,(int)$admin['id'],'system','Müşteri bilgileri güncellendi','Müşteri kartı güncellendi.');
+                        $pdo->commit();
                         kd_audit('customer.updated','customer',$customerId);
                         self::redirect('view',$customerId);
                     }
@@ -70,6 +75,9 @@ final class CustomerController
                         throw new RuntimeException('Müşteri kaydı bulunamadı.');
                     }
                     if (!$errors) {
+                        if (!self::find($pdo, $customerId)) {
+                            self::notFound();
+                        }
                         self::addActivity($pdo,$customerId,(int)$admin['id'],'note',$subject,$body);
                         kd_audit('customer.activity_added','customer',$customerId);
                         self::redirect('view',$customerId);
@@ -78,8 +86,13 @@ final class CustomerController
                     $action = 'view';
                 } elseif ($formAction === 'archive') {
                     $customerId = max(0,(int)($_POST['customer_id'] ?? 0));
+                    if (!self::find($pdo, $customerId)) {
+                        self::notFound();
+                    }
+                    $pdo->beginTransaction();
                     $pdo->prepare("UPDATE customers SET status='inactive',updated_at=NOW() WHERE id=?")->execute([$customerId]);
                     self::addActivity($pdo,$customerId,(int)$admin['id'],'system','Müşteri pasife alındı','Müşteri kaydı silinmeden arşivlendi.');
+                    $pdo->commit();
                     kd_audit('customer.archived','customer',$customerId);
                     self::redirect('list');
                 }
