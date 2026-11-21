@@ -50,6 +50,14 @@ jobs:
           KD_TEST_DB_USER: root
           KD_TEST_DB_PASS: root
         run: php tests/migrator_integration.php
+      - name: Run warehouse integrity database integration tests
+        env:
+          KD_TEST_DB_HOST: 127.0.0.1
+          KD_TEST_DB_PORT: 3306
+          KD_TEST_DB_NAME: kdall_test
+          KD_TEST_DB_USER: root
+          KD_TEST_DB_PASS: root
+        run: php tests/warehouse_integrity_integration.php
       - name: Run CRM database integration tests
         env:
           KD_TEST_DB_HOST: 127.0.0.1
