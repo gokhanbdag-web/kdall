@@ -53,4 +53,16 @@ foreach (['min_amount','max_amount','assigned_user_id','customer_id','DATE(f.due
 foreach (['name="q"','name="stage"','name="status"','name="customer_id"','name="assigned_user_id"','name="from"','name="to"','name="min_amount"','name="max_amount"'] as $required) {
  if (!str_contains($dashboardView,$required)) {fwrite(STDERR,"CRM filter UI missing: $required\n");exit(1);}
 }
+$dashboard=file_get_contents($root.'/app/Modules/Customers/CrmDashboard.php');
+$dashboardView=file_get_contents($root.'/app/Views/customers/crm_dashboard.php');
+$workspace=file_get_contents($root.'/app/Modules/Customers/CrmWorkspace.php');
+foreach (['opp_page','follow_page','contact_page','COUNT(*)',' OFFSET ','$pagination'] as $required) {
+ if (!str_contains($dashboard,$required)) {fwrite(STDERR,"CRM pagination missing: $required\n");exit(1);}
+}
+foreach (['contacts_page','opportunities_page','followups_page'] as $required) {
+ if (!str_contains($workspace,$required) && !str_contains($workspace,"$key.'_page'")) {fwrite(STDERR,"CRM workspace pagination missing: $required\n");exit(1);}
+}
+foreach (['opp_page','follow_page','contact_page'] as $required) {
+ if (!str_contains($dashboardView,$required)) {fwrite(STDERR,"CRM pagination UI missing: $required\n");exit(1);}
+}
 echo "CRM workspace smoke tests passed\n";
