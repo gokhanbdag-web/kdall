@@ -26,4 +26,11 @@ $controller=file_get_contents($root.'/app/Modules/Customers/CrmWorkspace.php');
 foreach (['delete_opportunity','delete_followup','confirm_delete','customer_id=?','kd_audit'] as $required) {
  if (!str_contains($controller,$required) || (!str_contains($view,$required) && in_array($required,['delete_opportunity','delete_followup','confirm_delete'],true))) {fwrite(STDERR,"CRM deletion missing: $required\n");exit(1);}
 }
+$controller=file_get_contents($root.'/app/Modules/Customers/CrmWorkspace.php');
+foreach (['link_followup_opportunity','SELECT id FROM crm_followups WHERE id=? AND customer_id=?','SELECT id FROM crm_opportunities WHERE id=? AND customer_id=?','UPDATE crm_followups SET opportunity_id=?'] as $required) {
+ if (!str_contains($controller,$required)) {fwrite(STDERR,"CRM association missing: $required\n");exit(1);}
+}
+foreach (['link_followup_opportunity','Bağlantı yok','opportunity_id'] as $required) {
+ if (!str_contains($view,$required)) {fwrite(STDERR,"CRM association UI missing: $required\n");exit(1);}
+}
 echo "CRM workspace smoke tests passed\n";
