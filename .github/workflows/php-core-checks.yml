@@ -56,6 +56,8 @@ jobs:
         run: php tests/customer_module_smoke.php
       - name: Run CRM workspace smoke tests
         run: php tests/crm_workspace_smoke.php
+      - name: Run CRM reminders smoke tests
+        run: php tests/crm_reminders_smoke.php
       - name: Run product inventory smoke tests
         run: php tests/product_module_smoke.php
       - name: Run sales order smoke tests
