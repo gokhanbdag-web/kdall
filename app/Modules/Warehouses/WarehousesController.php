@@ -110,6 +110,41 @@ final class WarehousesController
                 }
             }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();error_log('KodVadAll warehouses: '.$e->getMessage());$errors[]=$e instanceof RuntimeException?$e->getMessage():'Depo işlemi tamamlanamadı. Bilgileri kontrol edin.';}
         }
+        if($action==='stock_report'){
+            $warehouseId=max(0,(int)($_GET['warehouse_id']??0));
+            $lowOnly=($_GET['low_stock']??'')==='1';
+            $search=trim((string)($_GET['search']??''));
+            if(mb_strlen($search)>120)$search=mb_substr($search,0,120);
+            $warehouses=$pdo->query("SELECT id,name,code FROM warehouses WHERE status='active' ORDER BY is_default DESC,name")->fetchAll();
+            $where=["p.track_stock=1","p.status='active'"];$params=[];
+            if($warehouseId>0){$where[]='w.id=?';$params[]=$warehouseId;}
+            if($search!==''){$where[]='(p.name LIKE ? OR p.sku LIKE ?)';$params[]='%'.$search.'%';$params[]='%'.$search.'%';}
+            if($lowOnly)$where[]='COALESCE(s.quantity,0)<=p.min_stock';
+            $sql="SELECT w.id warehouse_id,w.name warehouse_name,p.id product_id,p.name product_name,p.sku,p.unit,p.min_stock,p.purchase_price,COALESCE(s.quantity,0) quantity,ROUND(COALESCE(s.quantity,0)*p.purchase_price,2) stock_value
+                FROM warehouses w CROSS JOIN products p LEFT JOIN product_warehouse_stocks s ON s.warehouse_id=w.id AND s.product_id=p.id
+                WHERE ".implode(' AND ',$where)." ORDER BY w.name,p.name LIMIT 500";
+            $q=$pdo->prepare($sql);$q->execute($params);$stockRows=$q->fetchAll();
+            $totalValue=array_sum(array_map(static fn($r)=>(float)$r['stock_value'],$stockRows));
+            $lowCount=count(array_filter($stockRows,static fn($r)=>(float)$r['quantity']<=(float)$r['min_stock']));
+            $pageTitle='Depo Stok Raporu';ob_start();require KD_ROOT.'/app/Views/warehouses/stock_report.php';$content=ob_get_clean();require KD_ROOT.'/app/Views/layouts/admin.php';return;
+        }
+        if($action==='movements'){
+            $warehouseId=max(0,(int)($_GET['warehouse_id']??0));$productId=max(0,(int)($_GET['product_id']??0));
+            $type=trim((string)($_GET['movement_type']??''));
+            $allowedTypes=$pdo->query('SELECT DISTINCT movement_type FROM product_stock_movements ORDER BY movement_type')->fetchAll(PDO::FETCH_COLUMN);
+            if($type!==''&&!in_array($type,$allowedTypes,true))$type='';
+            $warehouses=$pdo->query("SELECT id,name FROM warehouses ORDER BY name")->fetchAll();
+            $where=['1=1'];$params=[];
+            if($warehouseId>0){$where[]='m.warehouse_id=?';$params[]=$warehouseId;}
+            if($productId>0){$where[]='m.product_id=?';$params[]=$productId;}
+            if($type!==''){$where[]='m.movement_type=?';$params[]=$type;}
+            $from=(string)($_GET['from']??'');$to=(string)($_GET['to']??'');
+            if(preg_match('/^\\d{4}-\\d{2}-\\d{2}$/D',$from)){$where[]='m.created_at>=?';$params[]=$from.' 00:00:00';}else $from='';
+            if(preg_match('/^\\d{4}-\\d{2}-\\d{2}$/D',$to)){$where[]='m.created_at<?';$params[]=date('Y-m-d',strtotime($to.' +1 day')).' 00:00:00';}else $to='';
+            $q=$pdo->prepare("SELECT m.*,p.name product_name,p.sku,w.name warehouse_name FROM product_stock_movements m JOIN products p ON p.id=m.product_id LEFT JOIN warehouses w ON w.id=m.warehouse_id WHERE ".implode(' AND ',$where)." ORDER BY m.id DESC LIMIT 300");
+            $q->execute($params);$movements=$q->fetchAll();
+            $pageTitle='Stok Hareketleri';ob_start();require KD_ROOT.'/app/Views/warehouses/movements.php';$content=ob_get_clean();require KD_ROOT.'/app/Views/layouts/admin.php';return;
+        }
         if($action==='reconcile'){
             $discrepancies=$pdo->query("SELECT p.id,p.name,p.sku,p.stock_quantity,COALESCE(SUM(s.quantity),0) warehouse_total,ROUND(p.stock_quantity-COALESCE(SUM(s.quantity),0),3) difference FROM products p LEFT JOIN product_warehouse_stocks s ON s.product_id=p.id WHERE p.track_stock=1 GROUP BY p.id,p.name,p.sku,p.stock_quantity HAVING ABS(difference)>0.0005 ORDER BY ABS(difference) DESC,p.id LIMIT 200")->fetchAll();
             $pageTitle='Stok Mutabakatı';ob_start();require KD_ROOT.'/app/Views/warehouses/reconcile.php';$content=ob_get_clean();require KD_ROOT.'/app/Views/layouts/admin.php';return;
