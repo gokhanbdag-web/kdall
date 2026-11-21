@@ -75,7 +75,7 @@ final class AccountingController
   $totals['balance_difference']=$totals['asset']-($totals['liability']+$totals['equity_with_profit']);
   $reconciliation=[];
   if($report==='reconcile'){
-   $q=$db->prepare("SELECT a.id,a.name,a.account_type,a.opening_balance,COALESCE((SELECT SUM(CASE WHEN t.direction='credit' THEN t.amount ELSE -t.amount END) FROM financial_transactions t WHERE t.account_id=a.id AND t.currency=? AND t.transaction_date<=?),0) movements FROM financial_accounts a WHERE a.currency=? ORDER BY a.name");$q->execute([$currency,$to,$currency]);
+   $q=$db->prepare("SELECT a.id,a.name,a.account_type,a.opening_balance,COALESCE((SELECT SUM(CASE WHEN t.direction='credit' THEN t.amount ELSE -t.amount END) FROM financial_transactions t WHERE t.account_id=a.id AND t.currency=? AND t.transaction_date<=?),0) movements FROM financial_accounts a WHERE a.currency=? AND a.created_at < DATE_ADD(?, INTERVAL 1 DAY) ORDER BY a.name");$q->execute([$currency,$to,$currency,$to]);
    $reconciliation=$q->fetchAll();
    foreach($reconciliation as &$row){
     $accountCode=$row['account_type']==='bank'?'102':'100';
