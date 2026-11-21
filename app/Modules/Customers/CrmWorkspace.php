@@ -15,6 +15,11 @@ final class CrmWorkspace {
    if (in_array($kind,['contact','opportunity','followup'],true) && ($title==='' || mb_strlen($title)>190)) {$errors[]='Başlık 1-190 karakter olmalıdır.';}
    try {
     if (!$errors) {
+     $entityType=in_array($kind,['contact','edit_contact','delete_contact'],true)?'contact':(in_array($kind,['opportunity','edit_opportunity','delete_opportunity','stage','link_quote'],true)?'opportunity':'followup');
+     $entityTable=['contact'=>'crm_contacts','opportunity'=>'crm_opportunities','followup'=>'crm_followups'][$entityType];
+     $entityId=in_array($kind,['contact','opportunity','followup'],true)?0:(int)($_POST['item_id']??0);
+     $before=$entityId>0?CrmHistory::snapshot($pdo,$entityTable,$id,$entityId):null;
+     $pdo->beginTransaction();
      if ($kind==='contact') {
       $email=trim((string)($_POST['email']??''));
       if ($email!=='' && !filter_var($email,FILTER_VALIDATE_EMAIL)) {$errors[]='E-posta geçersiz.';}
@@ -102,9 +107,17 @@ final class CrmWorkspace {
      } elseif ($kind==='delete_contact') {
       $pdo->prepare('DELETE FROM crm_contacts WHERE id=? AND customer_id=?')->execute([(int)($_POST['item_id']??0),$id]);
      } else {$errors[]='İşlem geçersiz.';}
-     if (!$errors) {kd_audit('crm.'.$kind,'customer',$id);header('Location: index.php?page=customers&action=crm&id='.$id,true,303);exit;}
+     if ($errors) {$pdo->rollBack();}
+     else {
+      if ($entityId===0) $entityId=(int)$pdo->lastInsertId();
+      $after=CrmHistory::snapshot($pdo,$entityTable,$id,$entityId);
+      if ($before!==$after) CrmHistory::record($pdo,$id,(int)$admin['id'],'crm.'.$kind,$entityType,$entityId,$before,$after);
+      $pdo->commit();
+      kd_audit('crm.'.$kind,'customer',$id);
+      header('Location: index.php?page=customers&action=crm&id='.$id,true,303);exit;
+     }
     }
-   } catch (Throwable $e) {error_log('CRM: '.$e->getMessage());$errors[]='İşlem başarısız.';}
+   } catch (Throwable $e) {if ($pdo->inTransaction()) $pdo->rollBack();error_log('CRM: '.$e->getMessage());$errors[]='İşlem başarısız.';}
   }
   $data=[];$pagination=[];$perPage=25;
   foreach (['contacts'=>'crm_contacts','opportunities'=>'crm_opportunities','followups'=>'crm_followups'] as $key=>$table) {
@@ -124,6 +137,8 @@ final class CrmWorkspace {
   $stmt->execute([$id]);$pipeline=$stmt->fetchAll();
   $stmt=$pdo->prepare("SELECT COUNT(*) FROM crm_followups WHERE customer_id=? AND status='open' AND due_at<NOW()");
   $stmt->execute([$id]);$overdue=(int)$stmt->fetchColumn();
+  $historyStmt=$pdo->prepare('SELECT h.action_key,h.entity_type,h.entity_id,h.before_json,h.after_json,h.created_at,u.name AS actor_name FROM crm_activity_history h LEFT JOIN users u ON u.id=h.actor_user_id WHERE h.customer_id=? ORDER BY h.id DESC LIMIT 30');
+  $historyStmt->execute([$id]);$history=$historyStmt->fetchAll(PDO::FETCH_ASSOC);
   $pageTitle='CRM: '.$customer['name'];ob_start();require KD_ROOT.'/app/Views/customers/crm.php';$content=ob_get_clean();require KD_ROOT.'/app/Views/layouts/admin.php';
  }
 }
