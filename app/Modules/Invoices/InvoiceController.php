@@ -24,8 +24,10 @@ final class InvoiceController
      $db->beginTransaction();
      // Lock the source document to serialize concurrent invoice creation requests.
      $sourceTable=$kind==='purchase'?'purchase_orders':'orders';
-     $lock=$db->prepare('SELECT id FROM '.$sourceTable.' WHERE id=? FOR UPDATE');$lock->execute([$source]);
-     if(!$lock->fetchColumn())throw new RuntimeException('Kaynak belge bulunamadı.');
+     $lock=$db->prepare('SELECT status FROM '.$sourceTable.' WHERE id=? FOR UPDATE');$lock->execute([$source]);
+     $lockedStatus=$lock->fetchColumn();if($lockedStatus===false)throw new RuntimeException('Kaynak belge bulunamadı.');
+     if($kind==='purchase'&&$lockedStatus!=='received')throw new RuntimeException('Mal kabulü tamamlanmamış satın alma siparişi faturalandırılamaz.');
+     if($kind!=='purchase'&&!in_array($lockedStatus,['confirmed','processing','shipped','completed'],true))throw new RuntimeException('Satış siparişinin durumu faturalandırmaya uygun değil.');
      $sourceColumn=$kind==='purchase'?'source_purchase_id':'source_order_id';
      $duplicate=$db->prepare('SELECT id FROM invoices WHERE '.$sourceColumn.'=? AND invoice_type=? AND status<>\'cancelled\' LIMIT 1');
      $duplicate->execute([$source,$kind]);
