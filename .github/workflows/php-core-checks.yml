@@ -116,6 +116,8 @@ jobs:
         run: php tests/shipping_module_smoke.php
       - name: Run returns module smoke tests
         run: php tests/returns_module_smoke.php
+      - name: Run sales documents integrity tests
+        run: php tests/sales_documents_integrity_smoke.php
       - name: Run sales documents smoke tests
         run: php tests/sales_documents_smoke.php
       - name: Run HR module smoke tests
