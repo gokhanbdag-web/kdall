@@ -16,4 +16,7 @@ $nav=require dirname(__DIR__).'/app/config/navigation.php';$found=false;foreach(
 if(!$found){fwrite(STDERR,"Invoice navigation missing.\n");exit(1);}
 if($controller===false||strpos($controller,"Avans mahsubu bulunan fatura iptal edilemez.")===false||substr_count($controller,'SELECT COALESCE(SUM(amount),0) FROM financial_advance_allocations WHERE invoice_id=?')<2){fwrite(STDERR,"Invoice payment and cancellation advance reconciliation missing.\\n");exit(1);}
 foreach(["status='active' FOR UPDATE","opening_balance","CASE WHEN direction='credit' THEN amount ELSE -amount END","Tedarikçi ödemesi için kasa/banka bakiyesi yetersiz."] as $needle){if(!str_contains($controller,$needle))throw new RuntimeException('Invoice account balance guard missing: '.$needle);}
+$paymentSection=substr($controller,strpos($controller,"if(\$form==='payment')"));
+$accountLock=strpos($paymentSection,"status='active' FOR UPDATE");$invoiceLock=strpos($paymentSection,"SELECT * FROM invoices WHERE id=? FOR UPDATE");
+if($accountLock===false||$invoiceLock===false||$accountLock>$invoiceLock)throw new RuntimeException('Invoice payment lock order must be account before invoice.');
 echo "KodVadAll invoice module smoke tests passed.\n";

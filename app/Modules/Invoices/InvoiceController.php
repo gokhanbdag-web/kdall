@@ -51,11 +51,14 @@ final class InvoiceController
      $invoiceId=(int)($_POST['invoice_id']??0);$accountId=(int)($_POST['account_id']??0);$amountInput=trim((string)($_POST['amount']??''));$date=(string)($_POST['transaction_date']??date('Y-m-d'));
      if(!preg_match('/^\\d{1,13}(?:\\.\\d{1,2})?$/',$amountInput))throw new RuntimeException('Ödeme tutarı en fazla iki ondalık basamak içermelidir.');
      $amount=(float)$amountInput;
-     $db->beginTransaction();$q=$db->prepare('SELECT * FROM invoices WHERE id=? FOR UPDATE');$q->execute([$invoiceId]);$inv=$q->fetch();if(!$inv||$inv['status']!=='issued'||$inv['invoice_type']==='proforma')throw new RuntimeException('Bu fatura için ödeme alınamaz veya ödeme yapılamaz.');
+     $db->beginTransaction();
+     // Lock financial account before invoice, matching FinanceController transaction lock order.
+     $q=$db->prepare("SELECT id,currency,opening_balance FROM financial_accounts WHERE id=? AND status='active' FOR UPDATE");$q->execute([$accountId]);$acc=$q->fetch();if(!$acc)throw new RuntimeException('Aktif bir kasa veya banka hesabı seçin.');
+     $q=$db->prepare('SELECT * FROM invoices WHERE id=? FOR UPDATE');$q->execute([$invoiceId]);$inv=$q->fetch();if(!$inv||$inv['status']!=='issued'||$inv['invoice_type']==='proforma')throw new RuntimeException('Bu fatura için ödeme alınamaz veya ödeme yapılamaz.');
      $direction=$inv['invoice_type']==='purchase'?'debit':'credit';$type=$inv['invoice_type']==='purchase'?'supplier_payment':'collection';
      $q=$db->prepare('SELECT COALESCE(SUM(amount),0) FROM financial_transactions WHERE invoice_id=? AND direction=? AND transaction_type=? AND currency=?');$q->execute([$invoiceId,$direction,$type,$inv['currency']]);$paid=(float)$q->fetchColumn();$q=$db->prepare('SELECT COALESCE(SUM(amount),0) FROM financial_advance_allocations WHERE invoice_id=?');$q->execute([$invoiceId]);$allocated=(float)$q->fetchColumn();$remaining=round((float)$inv['grand_total']-$paid-$allocated,2);
      if($amount<=0||$amount>$remaining+0.000001||!preg_match('/^\d{4}-\d{2}-\d{2}$/',$date))throw new RuntimeException('Ödeme tutarı kalan fatura tutarını aşamaz.');
-     $q=$db->prepare("SELECT id,currency,opening_balance FROM financial_accounts WHERE id=? AND status='active' FOR UPDATE");$q->execute([$accountId]);$acc=$q->fetch();if(!$acc||$acc['currency']!==$inv['currency'])throw new RuntimeException('Fatura ile aynı para biriminde aktif hesap seçin.');
+     if($acc['currency']!==$inv['currency'])throw new RuntimeException('Fatura ile aynı para biriminde aktif hesap seçin.');
      if($direction==='debit'){
       $balanceQuery=$db->prepare("SELECT COALESCE(SUM(CASE WHEN direction='credit' THEN amount ELSE -amount END),0) FROM financial_transactions WHERE account_id=?");
       $balanceQuery->execute([$accountId]);$available=round((float)$acc['opening_balance']+(float)$balanceQuery->fetchColumn(),2);
