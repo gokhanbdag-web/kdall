@@ -29,7 +29,7 @@ final class WarehousesController
                     $stocktakeId=max(0,(int)($_POST['stocktake_id']??0));$counts=is_array($_POST['counted_qty']??null)?$_POST['counted_qty']:[];
                     $pdo->beginTransaction();$q=$pdo->prepare("SELECT id,status FROM warehouse_stocktakes WHERE id=? FOR UPDATE");$q->execute([$stocktakeId]);$session=$q->fetch();if(!$session||$session['status']!=='draft')throw new RuntimeException('Bu sayım düzenlenebilir durumda değil.');
                     $q=$pdo->prepare('SELECT id,product_id,expected_quantity FROM warehouse_stocktake_items WHERE stocktake_id=? ORDER BY product_id FOR UPDATE');$q->execute([$stocktakeId]);$update=$pdo->prepare('UPDATE warehouse_stocktake_items SET counted_quantity=?,variance=?,counted_at=NOW() WHERE id=?');
-                    foreach($q->fetchAll() as $item){$raw=$counts[(int)$item['product_id']]??null;if($raw===null||trim((string)$raw)==='')continue;if(!is_numeric($raw)||(float)$raw<0||(float)$raw>999999999999.999)throw new RuntimeException('Sayım miktarı geçersiz.');$counted=round((float)$raw,3);$update->execute([$counted,round($counted-(float)$item['expected_quantity'],3),(int)$item['id']]);}
+                    foreach($q->fetchAll() as $item){$raw=$counts[(int)$item['product_id']]??null;if($raw===null||trim((string)$raw)==='')continue;if(!preg_match('/^\\d+(?:\\.\\d{1,3})?$/D',trim((string)$raw))||(float)$raw>999999999999.999)throw new RuntimeException('Sayım miktarı geçersiz; en fazla 3 ondalık basamak girin.');$counted=round((float)$raw,3);$update->execute([$counted,round($counted-(float)$item['expected_quantity'],3),(int)$item['id']]);}
                     $pdo->commit();kd_audit('warehouse.stocktake_counts_saved','warehouse_stocktake',$stocktakeId);self::go('stocktake',$stocktakeId);
                 }
                 if($form==='complete_stocktake'){
@@ -65,13 +65,22 @@ final class WarehousesController
                     if((int)$w['is_default']===1)throw new RuntimeException('Varsayılan depo pasife alınamaz.');
                     $q=$pdo->prepare('SELECT COALESCE(SUM(ABS(quantity)),0) FROM product_warehouse_stocks WHERE warehouse_id=?');$q->execute([$id]);
                     if((float)$q->fetchColumn()>0)throw new RuntimeException('Stoğu bulunan depo pasife alınamaz. Önce stokları başka depoya transfer edin.');
+                    $q=$pdo->prepare("SELECT COUNT(*) FROM warehouse_stocktakes WHERE warehouse_id=? AND status='draft'");$q->execute([$id]);
+                    if((int)$q->fetchColumn()>0)throw new RuntimeException('Açık sayımı bulunan depo pasife alınamaz.');
                     $pdo->prepare("UPDATE warehouses SET status='inactive',updated_at=NOW() WHERE id=?")->execute([$id]);$pdo->commit();kd_audit('warehouse.archived','warehouse',$id);self::go();
                 }
                 if($form==='transfer'){
                     $from=max(0,(int)($_POST['from_warehouse_id']??0));$to=max(0,(int)($_POST['to_warehouse_id']??0));
                     if($from<1||$to<1||$from===$to)throw new RuntimeException('Farklı kaynak ve hedef depolar seçin.');
                     $ids=is_array($_POST['product_id']??null)?$_POST['product_id']:[];$qtys=is_array($_POST['quantity']??null)?$_POST['quantity']:[];
-                    $items=[];foreach($ids as $i=>$raw){$pid=(int)$raw;$qty=(float)($qtys[$i]??0);if($pid<1||$qty<0)throw new RuntimeException('Ürün veya transfer miktarı geçersiz.');if($qty>0)$items[$pid]=($items[$pid]??0)+$qty;}
+                    $items=[];foreach($ids as $i=>$raw){
+                        $quantityRaw=trim((string)($qtys[$i]??''));
+                        if($quantityRaw==='')continue;
+                        if(!ctype_digit((string)$raw)||!preg_match('/^\\d+(?:\\.\\d{1,3})?$/D',$quantityRaw))throw new RuntimeException('Ürün veya transfer miktarı geçersiz; en fazla 3 ondalık basamak girin.');
+                        $pid=(int)$raw;$qty=(float)$quantityRaw;
+                        if($pid<1||$qty<0||$qty>999999999999.999)throw new RuntimeException('Ürün veya transfer miktarı geçersiz.');
+                        if($qty>0){$items[$pid]=round(($items[$pid]??0)+$qty,3);if($items[$pid]>999999999999.999)throw new RuntimeException('Transfer miktarı üst sınırı aşıyor.');}
+                    }
                     if(!$items)throw new RuntimeException('Transfer için en az bir ürün miktarı girin.');
                     $note=trim((string)($_POST['note']??''));if(mb_strlen($note)>255)throw new RuntimeException('Transfer açıklaması 255 karakteri geçemez.');
                     $pdo->beginTransaction();
