@@ -33,6 +33,18 @@ final class CrmWorkspace {
       else {$pdo->prepare('UPDATE crm_opportunities SET stage=?,updated_at=NOW() WHERE id=? AND customer_id=?')->execute([$stage,(int)($_POST['item_id']??0),$id]);}
      } elseif ($kind==='done' || $kind==='reopen') {
       $pdo->prepare('UPDATE crm_followups SET status=? WHERE id=? AND customer_id=?')->execute([$kind==='done'?'done':'open',(int)($_POST['item_id']??0),$id]);
+     } elseif ($kind==='link_quote') {
+      kd_require_permission('quotes.view');
+      $quoteId=(int)($_POST['quote_id']??0);
+      $check=$pdo->prepare('SELECT id FROM quotes WHERE id=? AND customer_id=?');$check->execute([$quoteId,$id]);
+      if (!$check->fetchColumn()) {$errors[]='Teklif bu müşteriye ait değil.';}
+      else {$pdo->prepare('UPDATE crm_opportunities SET quote_id=? WHERE id=? AND customer_id=?')->execute([$quoteId,(int)($_POST['item_id']??0),$id]);}
+     } elseif ($kind==='link_task') {
+      kd_require_permission('tasks.view');
+      $taskId=(int)($_POST['task_id']??0);
+      $check=$pdo->prepare('SELECT id FROM tasks WHERE id=?');$check->execute([$taskId]);
+      if (!$check->fetchColumn()) {$errors[]='Görev bulunamadı.';}
+      else {$pdo->prepare('UPDATE crm_followups SET task_id=? WHERE id=? AND customer_id=?')->execute([$taskId,(int)($_POST['item_id']??0),$id]);}
      } elseif ($kind==='delete_contact') {
       $pdo->prepare('DELETE FROM crm_contacts WHERE id=? AND customer_id=?')->execute([(int)($_POST['item_id']??0),$id]);
      } else {$errors[]='İşlem geçersiz.';}
@@ -44,6 +56,9 @@ final class CrmWorkspace {
   foreach (['contacts'=>'crm_contacts','opportunities'=>'crm_opportunities','followups'=>'crm_followups'] as $key=>$table) {
    $stmt=$pdo->prepare("SELECT * FROM {$table} WHERE customer_id=? ORDER BY id DESC LIMIT 200");$stmt->execute([$id]);$data[$key]=$stmt->fetchAll();
   }
+  $quotes=[];$tasks=[];
+  if (kd_can('quotes.view')) {$stmt=$pdo->prepare('SELECT id,quote_number FROM quotes WHERE customer_id=? ORDER BY id DESC LIMIT 100');$stmt->execute([$id]);$quotes=$stmt->fetchAll();}
+  if (kd_can('tasks.view')) {$tasks=$pdo->query('SELECT id,title FROM tasks ORDER BY id DESC LIMIT 100')->fetchAll();}
   $pageTitle='CRM: '.$customer['name'];ob_start();require KD_ROOT.'/app/Views/customers/crm.php';$content=ob_get_clean();require KD_ROOT.'/app/Views/layouts/admin.php';
  }
 }
