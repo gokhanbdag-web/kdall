@@ -64,6 +64,8 @@ jobs:
         run: php tests/customer_module_smoke.php
       - name: Run CRM workspace smoke tests
         run: php tests/crm_workspace_smoke.php
+      - name: Run warehouse reporting smoke tests
+        run: php tests/warehouse_reporting_smoke.php
       - name: Run warehouse operational fixes smoke tests
         run: php tests/warehouse_operational_fixes_smoke.php
       - name: Run CRM history smoke tests
